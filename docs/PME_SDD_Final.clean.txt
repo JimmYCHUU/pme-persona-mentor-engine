@@ -1,0 +1,1766 @@
+PERSONA MENTOR ENGINE
+Software Design Document
+──────────────────────────────────────────
+Final Version  ·  Codex-Optimised  ·  Complete & Self-Contained  ·  Ubuntu/Debian  ·  8 GB RAM
+WRITTEN FOR CHATGPT CODEX: This document contains exact code for every function, exact terminal commands for every step, and explicit DO/DO-NOT rules throughout. Nothing is left to interpretation. If a section says 'implement X', the exact implementation follows immediately below. Follow every instruction literally.
+0.  How to Read This Document
+CODEX INSTRUCTION: Read this entire Section 0 before writing a single line of code. It defines the methodology, toolchain, and project scaffolding. After Section 0, follow Sections 1–11 in strict order. Each section maps to a directory or a set of files. When a section says 'create file X', create it immediately — do not skip ahead.
+This SDD is the definitive HOW document. The companion SRS Final is the WHAT document. Read the SRS first to understand intent; follow the SDD exclusively for implementation. This document is complete and self-contained — no prior SDD version needs to be consulted.
+0.1  Codex Operating Rules  —  Read Before Anything Else
+These rules apply for the entire project, every file, every session. They override any default behaviour Codex might have.
+Rule 1: Context7 MCP is mandatory for all library lookups
+Before implementing ANY file that imports an external library, you MUST resolve that library in Context7 to get current API documentation. Do NOT use training data for library APIs — they change frequently.
+# Context7 resolution pattern — use this EVERY TIME before implementing a module:
+# resolve-library-id langgraph      → use before: graph/orchestrator.py, all nodes/*.py
+# resolve-library-id llama-index    → use before: rag/vault.py, rag/fingerprint.py, rag/retriever.py
+# resolve-library-id fastapi        → use before: api/*.py, main.py
+# resolve-library-id chromadb       → use before: rag/vault.py, rag/retriever.py
+# resolve-library-id sqlalchemy     → use before: models/*.py, core/database.py
+# resolve-library-id openai-whisper → use before: rag/vault.py (transcription section)
+# resolve-library-id react          → use before: ALL frontend/src/ components
+# resolve-library-id zustand        → use before: store/*.ts
+# resolve-library-id framer-motion  → use before: OpeningRitual.tsx, Message.tsx, ResumeModal.tsx
+# resolve-library-id radix-ui       → use before: SliderPanel.tsx
+Rule 2: Superpowers methodology — install first
+Install Superpowers before starting. In GitHub Copilot CLI:
+copilot plugin marketplace add obra/superpowers-marketplace
+copilot plugin install superpowers@superpowers-marketplace
+# Verify skills are available:
+# You should be able to call: superpowers:writing-plans
+# If not available, check Copilot CLI plugin docs for your version.
+Rule 3: TDD for all backend modules
+⚠ DO NOT: Write implementation code before the test exists
+✓ DO: Write the test. Run it. Watch it FAIL. Then write implementation. Then run again. Watch it PASS. Then commit.
+Required test files (must exist and fail BEFORE implementation):
+backend/tests/test_memory_node.py
+backend/tests/test_socratic_node.py
+backend/tests/test_persona_node.py
+backend/tests/test_guardian_node.py
+backend/tests/test_mastery_node.py   ← MOST CRITICAL (NFR-008)
+backend/tests/test_cert_node.py
+backend/tests/test_ollama_service.py
+backend/tests/test_retriever.py
+Rule 4: Architecture rules — never violate
+⚠ DO NOT: Merge socratic_node and persona_node into one node
+⚠ DO NOT: Put mastery_node or cert_node in the main LangGraph graph
+⚠ DO NOT: Call any external LLM API — Ollama ONLY
+⚠ DO NOT: Skip the WorkspaceShell in the frontend component tree
+⚠ DO NOT: Hardcode model names larger than llama3.2:3b without explicit user upgrade
+⚠ DO NOT: Load DistilBERT at import time — it must be loaded lazily (first call only)
+✓ DO: Keep socratic_node and persona_node as separate, independent LangGraph nodes
+✓ DO: Run mastery_node and cert_node as FastAPI BackgroundTasks only
+✓ DO: Route all LLM calls through OllamaService exclusively
+✓ DO: Return { success, data, error } envelope from every FastAPI endpoint
+0.2  CLAUDE.md / AGENTS.md  —  Create This File at Project Root
+Create pme/CLAUDE.md (Claude Code) OR pme/AGENTS.md (Codex). This file is read automatically at session start.
+# PME Project Intelligence
+# Auto-read by Codex/Claude Code at session start.
+## Architecture Rules (NON-NEGOTIABLE)
+- socratic_node and persona_node: NEVER merge. Separate LangGraph nodes always.
+- mastery_node and cert_node: FastAPI BackgroundTasks ONLY. Never in main graph.
+- etm_node runs BEFORE socratic_node in graph.
+- guardian_node runs LAST before response delivery.
+- All LLM calls: OllamaService only. No direct httpx to Ollama elsewhere.
+- All FastAPI endpoints: return {success, data, error} envelope.
+- ChromaDB collections: vault_{persona_id} and fingerprint_{persona_id}.
+## Coding Standards
+- TDD: Test before code for ALL backend modules.
+- DRY: Shared Python logic → core/utils.py. Shared frontend logic → hooks/.
+- YAGNI: Only build what SRS REQ or NFR explicitly requires.
+- Type hints: ALL Python functions require complete type annotations.
+- Docstrings: All public functions and classes require docstrings.
+- Async: All FastAPI endpoints and LangGraph nodes must be async.
+## Superpowers Skills — Use These
+- Start of each phase: superpowers:using-git-worktrees
+- Before coding: superpowers:writing-plans (await approval)
+- Phases 1-3 execution: superpowers:subagent-driven-development
+- Phases 4-5 execution: superpowers:executing-plans
+- All backend files: superpowers:test-driven-development
+## Context7 — Use Before Every Library
+Resolve library in Context7 before implementing any file that imports it.
+## Privacy Rules
+- ZERO external inference API calls. Ollama only.
+- Vault data stays in backend/data/uploads/. Never transmitted.
+- Mastery data stays in local SQLite + JSON. Never transmitted.
+1.  System Architecture
+1.1  Component Diagram
+┌─────────────────────────────────────────────────────────────────────┐
+│                   USER'S DESKTOP / DOCKER NETWORK                  │
+│                                                                     │
+│  ┌──────────────┐  HTTP/WS  ┌──────────────────────────────────┐  │
+│  │ React + Vite  │◄─────────►│  FastAPI Backend  :8000          │  │
+│  │ :5173         │           │  ├─ LangGraph Orchestrator        │  │
+│  │ WorkspaceShell│           │  ├─ LlamaIndex RAG Pipeline       │  │
+│  │ MasteryMap    │           │  ├─ Session + Mastery Manager      │  │
+│  │ CertModal     │           │  └─ FastAPI BackgroundTasks        │  │
+│  └──────────────┘           └─────────────┬────────────────────┘  │
+│                                            │                        │
+│  ┌──────────────┐ ┌──────────────┐ ┌─────▼──────┐               │
+│  │ Ollama :11434 │ │ ChromaDB     │ │ SQLite     │               │
+│  │ llama3.2:3b   │ │ vault_{id}   │ │ sessions   │               │
+│  │ nomic-embed   │ │ fingerpr_{id}│ │ mastery    │               │
+│  │ (Docker svc)  │ │ (local dir)  │ │ certs      │               │
+│  └──────────────┘ └──────────────┘ └────────────┘               │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  VS Code Extension — terminal errors, file saves, idle events  │ │
+│  │  → POST http://localhost:8000/workspace/event                  │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+1.2  Complete Directory Structure
+CODEX: Create this EXACT directory structure. Create all directories and placeholder __init__.py files first. Do not create implementation files until their section in this document.
+pme/
+├── CLAUDE.md                     ← created in Section 0.2
+├── AGENTS.md                     ← same content, Codex variant
+├── docker-compose.yml
+├── docker-compose.override.yml
+├── .gitignore
+├── README.md
+├── backend/
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── .env                      ← copy of .env.example, not committed
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── utils.py              ← shared utilities (DRY target)
+│   ├── graph/
+│   │   ├── __init__.py
+│   │   ├── orchestrator.py
+│   │   ├── state.py
+│   │   └── nodes/
+│   │       ├── __init__.py
+│   │       ├── memory_node.py
+│   │       ├── persona_node.py
+│   │       ├── socratic_node.py
+│   │       ├── guardian_node.py
+│   │       ├── ingestor_node.py
+│   │       ├── etm_node.py
+│   │       ├── mastery_node.py
+│   │       └── cert_node.py
+│   ├── rag/
+│   │   ├── __init__.py
+│   │   ├── vault.py
+│   │   ├── fingerprint.py
+│   │   └── retriever.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── session.py
+│   │   ├── persona.py
+│   │   ├── mastery.py
+│   │   └── schemas.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── ollama_service.py
+│   │   ├── persona_service.py
+│   │   ├── session_service.py
+│   │   └── mastery_service.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── chat.py
+│   │   ├── persona.py
+│   │   ├── session.py
+│   │   ├── ingest.py
+│   │   ├── workspace.py
+│   │   └── mastery.py
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   ├── test_memory_node.py
+│   │   ├── test_socratic_node.py
+│   │   ├── test_persona_node.py
+│   │   ├── test_guardian_node.py
+│   │   ├── test_mastery_node.py
+│   │   ├── test_cert_node.py
+│   │   ├── test_ollama_service.py
+│   │   └── test_retriever.py
+│   └── data/
+│       ├── chroma/               ← ChromaDB persistent storage
+│       ├── sessions/             ← session_*.json snapshots
+│       ├── uploads/              ← user vault uploads
+│       ├── personas/             ← persona profiles + evolution_db.json
+│       └── mastery_certs/        ← {persona_id}/{concept_key}.json
+├── frontend/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── vitest.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── main.tsx
+│       ├── App.tsx
+│       ├── styles/
+│       │   └── globals.css
+│       ├── components/
+│       │   ├── layout/
+│       │   │   ├── WorkspaceShell.tsx
+│       │   │   ├── Shell.tsx
+│       │   │   ├── Sidebar.tsx
+│       │   │   └── StatusBar.tsx
+│       │   ├── chat/
+│       │   │   ├── ChatPane.tsx
+│       │   │   ├── Message.tsx
+│       │   │   ├── InputBar.tsx
+│       │   │   └── SocraticBadge.tsx
+│       │   ├── mastery/
+│       │   │   ├── MasteryMap.tsx
+│       │   │   ├── ConceptCard.tsx
+│       │   │   └── MasteryCertModal.tsx
+│       │   ├── persona/
+│       │   │   ├── PersonaCard.tsx
+│       │   │   ├── PersonaBuilder.tsx
+│       │   │   └── SliderPanel.tsx
+│       │   ├── session/
+│       │   │   ├── OpeningRitual.tsx
+│       │   │   ├── ResumeModal.tsx
+│       │   │   └── StepRoadmap.tsx
+│       │   └── shared/
+│       │       ├── Button.tsx
+│       │       ├── Slider.tsx
+│       │       ├── FileUpload.tsx
+│       │       └── Spinner.tsx
+│       ├── hooks/
+│       │   ├── useChat.ts
+│       │   ├── usePersona.ts
+│       │   ├── useSession.ts
+│       │   ├── useWebSocket.ts
+│       │   └── useMastery.ts
+│       ├── store/
+│       │   ├── chatStore.ts
+│       │   ├── personaStore.ts
+│       │   ├── sessionStore.ts
+│       │   └── masteryStore.ts
+│       ├── api/
+│       │   └── client.ts
+│       ├── types/
+│       │   └── index.ts
+│       └── test/
+│           └── setup.ts
+├── vscode-extension/
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/
+│       └── extension.ts
+└── scripts/
+    ├── setup.sh
+    ├── start.sh
+    └── start-docker.sh
+2.  Environment Setup
+2.1  Manual Setup (Ubuntu/Debian)
+Run these commands in a terminal from your home directory. Run them once. If you run them again, they are idempotent (safe to re-run).
+# Step 1 — System packages
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3.11 python3.11-venv python3-pip \
+  git curl wget ffmpeg libsqlite3-dev build-essential
+# Step 2 — Node.js 20 LTS
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version   # must be v20.x.x
+# Step 3 — Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve &   # runs in background on localhost:11434
+sleep 3
+# Step 4 — Pull required models
+ollama pull llama3.2:3b         # ~2.0 GB download
+ollama pull nomic-embed-text    # ~270 MB download
+# Step 5 — Verify Ollama is working
+curl http://localhost:11434/api/tags
+# Expected: JSON with llama3.2:3b and nomic-embed-text in the list
+# Step 6 — Python virtual environment
+cd pme/backend
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+playwright install chromium
+# Step 7 — Frontend dependencies
+cd ../frontend
+npm install
+# Step 8 — Data directories
+cd ..
+mkdir -p backend/data/{chroma,sessions,uploads,personas,mastery_certs}
+# Step 9 — Environment file
+cp backend/.env.example backend/.env
+# Edit backend/.env if needed (defaults should work as-is)
+2.2  requirements.txt  —  Complete and Pinned
+CODEX: Create backend/requirements.txt with EXACTLY these packages and versions. Do not add packages not listed here (YAGNI). Do not remove packages.
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+websockets==12.0
+python-multipart==0.0.9
+# LangGraph + LangChain
+langgraph==0.1.19
+langchain==0.2.6
+langchain-community==0.2.6
+langchain-ollama==0.1.1
+# LlamaIndex (RAG)
+llama-index==0.10.52
+llama-index-llms-ollama==0.2.2
+llama-index-embeddings-ollama==0.2.1
+llama-index-vector-stores-chroma==0.1.10
+# Vector database
+chromadb==0.5.3
+# Document processing
+pypdf==4.2.0
+python-docx==1.1.2
+# Video/audio transcription
+openai-whisper==20231117
+yt-dlp==2024.5.27
+# Web scraping
+httpx==0.27.0
+beautifulsoup4==4.12.3
+playwright==1.44.0
+# Database (SQLite async)
+sqlalchemy==2.0.30
+aiosqlite==0.20.0
+# Config + validation
+pydantic==2.7.3
+pydantic-settings==2.3.1
+python-dotenv==1.0.1
+# Safety classifier (loaded lazily)
+transformers==4.41.2
+torch==2.3.1
+# Utilities
+tenacity==8.3.0
+# Testing (install separately: pip install pytest pytest-asyncio pytest-cov httpx)
+2.3  .env.example  —  Complete
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+OLLAMA_EMBED_MODEL=nomic-embed-text
+CHROMA_PERSIST_DIR=./data/chroma
+UPLOAD_DIR=./data/uploads
+PERSONA_DIR=./data/personas
+SESSION_DIR=./data/sessions
+MASTERY_CERT_DIR=./data/mastery_certs
+SQLITE_URL=sqlite+aiosqlite:///./data/pme.db
+DEVIATION_THRESHOLD=0.65
+IDLE_TRIGGER_SECONDS=300
+MASTERY_SCORE_INCREMENT=0.1
+MASTERY_SCORE_DECREMENT=0.05
+MASTERY_CERT_THRESHOLD=0.8
+MASTERY_CERT_MIN_SESSIONS=3
+MASTERY_CERT_MIN_SUCCESSES=5
+GUARDIAN_MODEL=distilbert-base-uncased
+CORS_ORIGINS=["http://localhost:5173"]
+LOG_LEVEL=INFO
+3.  Docker Setup
+3.1  docker-compose.yml  —  Complete
+version: "3.9"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pme_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  ollama_pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: >
+      sh -c "ollama pull llama3.2:3b && ollama pull nomic-embed-text"
+    restart: "no"
+  backend:
+    build: ./backend
+    container_name: pme_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b
+      - OLLAMA_EMBED_MODEL=nomic-embed-text
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - UPLOAD_DIR=/app/data/uploads
+      - PERSONA_DIR=/app/data/personas
+      - SESSION_DIR=/app/data/sessions
+      - MASTERY_CERT_DIR=/app/data/mastery_certs
+      - SQLITE_URL=sqlite+aiosqlite:////app/data/pme.db
+      - CORS_ORIGINS=["http://localhost:5173"]
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+  frontend:
+    build: ./frontend
+    container_name: pme_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+volumes:
+  ollama_models:
+3.2  backend/Dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y ffmpeg curl build-essential \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN playwright install chromium --with-deps
+COPY . .
+RUN mkdir -p data/{chroma,sessions,uploads,personas,mastery_certs}
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+3.3  frontend/Dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json .
+RUN npm install
+COPY . .
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+4.  Backend  —  File-by-File Implementation
+CODEX: Each subsection below is a single file. Implement files in the exact order listed. For each file: (1) resolve any new library in Context7, (2) write the test file first (for backend modules), (3) run the test and confirm it FAILS, (4) write the implementation, (5) run the test and confirm it PASSES, (6) commit.
+4.1  core/config.py
+⚠ DO NOT: Use hardcoded strings for settings — always use Settings class
+from pydantic_settings import BaseSettings
+from typing import List
+class Settings(BaseSettings):
+    OLLAMA_BASE_URL: str = 'http://localhost:11434'
+    OLLAMA_MODEL: str = 'llama3.2:3b'
+    OLLAMA_EMBED_MODEL: str = 'nomic-embed-text'
+    CHROMA_PERSIST_DIR: str = './data/chroma'
+    UPLOAD_DIR: str = './data/uploads'
+    PERSONA_DIR: str = './data/personas'
+    SESSION_DIR: str = './data/sessions'
+    MASTERY_CERT_DIR: str = './data/mastery_certs'
+    SQLITE_URL: str = 'sqlite+aiosqlite:///./data/pme.db'
+    DEVIATION_THRESHOLD: float = 0.65
+    IDLE_TRIGGER_SECONDS: int = 300
+    MASTERY_SCORE_INCREMENT: float = 0.1
+    MASTERY_SCORE_DECREMENT: float = 0.05
+    MASTERY_CERT_THRESHOLD: float = 0.8
+    MASTERY_CERT_MIN_SESSIONS: int = 3
+    MASTERY_CERT_MIN_SUCCESSES: int = 5
+    GUARDIAN_MODEL: str = 'distilbert-base-uncased'
+    CORS_ORIGINS: List[str] = ['http://localhost:5173']
+    LOG_LEVEL: str = 'INFO'
+    class Config:
+        env_file = '.env'
+settings = Settings()
+4.2  core/database.py
+# Context7: resolve sqlalchemy BEFORE writing this file
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import declarative_base, sessionmaker
+from core.config import settings
+Base = declarative_base()
+engine = create_async_engine(settings.SQLITE_URL, echo=False)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async def init_db() -> None:
+    """Create all SQLite tables on startup."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+async def get_db():
+    """FastAPI dependency: yields an async DB session."""
+    async with AsyncSessionLocal() as session:
+        yield session
+4.3  graph/state.py  —  The Shared LangGraph State
+This TypedDict is the single object that flows through every LangGraph node. Every node reads from it and returns an updated copy. Never mutate it in place.
+from typing import TypedDict, Optional, List, Literal
+class PMEState(TypedDict):
+    # ── Identity ──────────────────────────────────────────
+    session_id:           str
+    persona_id:           str
+    # ── Input ─────────────────────────────────────────────
+    user_message:         str
+    workspace_event:      Optional[dict]   # from VS Code extension
+    # ── memory_node outputs ────────────────────────────────
+    session_snapshot:     Optional[dict]
+    is_returning_user:    bool
+    mastery_summary:      Optional[dict]   # {top_struggling, new_certs}
+    # ── etm_node outputs ───────────────────────────────────
+    etm_context:          Optional[str]    # evolution context to inject
+    etm_matched:          bool
+    # ── socratic_node outputs ──────────────────────────────
+    deviation_score:      float
+    socratic_level:       int              # 0-4
+    vault_citation:       Optional[str]
+    mastery_event:        Optional[dict]   # sent to BackgroundTask
+    # ── persona_node outputs ───────────────────────────────
+    raw_llm_response:     str
+    styled_response:      str
+    # ── guardian_node outputs ──────────────────────────────
+    guardian_flagged:     bool
+    final_response:       str
+    # ── Mode ──────────────────────────────────────────────
+    mode: Literal['deep_dive', 'friend_mode']
+4.4  graph/orchestrator.py
+# Context7: resolve langgraph BEFORE writing this file
+from langgraph.graph import StateGraph, END
+from graph.state import PMEState
+from graph.nodes.memory_node   import memory_node
+from graph.nodes.etm_node      import etm_node
+from graph.nodes.socratic_node import socratic_node
+from graph.nodes.persona_node  import persona_node
+from graph.nodes.guardian_node import guardian_node
+def build_graph() -> StateGraph:
+    """
+    Build and compile the PME LangGraph.
+    Node execution order: memory → etm → socratic → persona → guardian
+    mastery_node and cert_node are NOT in this graph.
+    They run as FastAPI BackgroundTasks after response delivery.
+    """
+    g = StateGraph(PMEState)
+    g.add_node('memory',   memory_node)
+    g.add_node('etm',      etm_node)
+    g.add_node('socratic', socratic_node)
+    g.add_node('persona',  persona_node)
+    g.add_node('guardian', guardian_node)
+    g.set_entry_point('memory')
+    g.add_edge('memory',   'etm')
+    g.add_edge('etm',      'socratic')
+    g.add_edge('socratic', 'persona')
+    g.add_edge('persona',  'guardian')
+    g.add_edge('guardian', END)
+    return g.compile()
+pme_graph = build_graph()
+4.5  services/ollama_service.py
+⚠ DO NOT: Call http://localhost:11434 directly with requests or httpx anywhere else in the codebase
+⚠ DO NOT: Load the full conversation history without trimming — this will exceed the 4096 token context window
+# Context7: resolve ollama (or httpx) BEFORE writing this file
+import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
+from core.config import settings
+from typing import List, AsyncGenerator
+CTX_LIMIT = 4096   # llama3.2:3b context window (tokens)
+CHARS_PER_TOKEN = 4  # rough approximation
+class OllamaService:
+    """Singleton wrapper for all Ollama API calls."""
+    @retry(stop=stop_after_attempt(3),
+           wait=wait_exponential(multiplier=1, min=1, max=8))
+    async def chat(self, model: str, system: str, message: str,
+                   history: list = []) -> str:
+        """Send a chat request to Ollama. Returns the response string."""
+        trimmed = self._trim_history(history, system, message)
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': system},
+                *trimmed,
+                {'role': 'user', 'content': message},
+            ],
+            'stream': False,
+        }
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            r = await client.post(
+                f'{settings.OLLAMA_BASE_URL}/api/chat', json=payload
+            )
+            r.raise_for_status()
+            return r.json()['message']['content']
+    async def stream(self, model: str, system: str, message: str,
+                     history: list = []) -> AsyncGenerator[str, None]:
+        """Streaming version. Yields token strings for WebSocket delivery."""
+        trimmed = self._trim_history(history, system, message)
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': system},
+                *trimmed,
+                {'role': 'user', 'content': message},
+            ],
+            'stream': True,
+        }
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            async with client.stream('POST',
+                f'{settings.OLLAMA_BASE_URL}/api/chat', json=payload) as r:
+                r.raise_for_status()
+                async for line in r.aiter_lines():
+                    if line:
+                        import json
+                        data = json.loads(line)
+                        if not data.get('done'):
+                            yield data['message']['content']
+    def _trim_history(self, history: list, system: str,
+                      message: str) -> list:
+        """
+        Trim history to fit within CTX_LIMIT.
+        Always keeps the MOST RECENT turns (not oldest).
+        """
+        budget = (CTX_LIMIT * CHARS_PER_TOKEN
+                  - len(system) - len(message) - 200)  # 200 char safety margin
+        result = []
+        used = 0
+        for turn in reversed(history):
+            turn_chars = len(turn.get('content', ''))
+            if used + turn_chars > budget:
+                break
+            result.insert(0, turn)
+            used += turn_chars
+        return result
+    async def check_health(self) -> bool:
+        """Returns True if Ollama is reachable. Used by StatusBar."""
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                r = await client.get(f'{settings.OLLAMA_BASE_URL}/api/tags')
+                return r.status_code == 200
+        except Exception:
+            return False
+ollama_service = OllamaService()  # module-level singleton
+4.6  graph/nodes/memory_node.py
+# TDD FIRST: write tests/test_memory_node.py before this file.
+# Context7: resolve sqlalchemy before writing this file.
+from graph.state import PMEState
+from services.session_service import SessionService
+from services.mastery_service import MasteryService
+async def memory_node(state: PMEState) -> PMEState:
+    """
+    Loads session snapshot and mastery summary for the active session.
+    Sets is_returning_user=True if a previous snapshot exists.
+    """
+    snapshot = await SessionService.load(state['session_id'])
+    state['session_snapshot'] = snapshot
+    state['is_returning_user'] = snapshot is not None
+    if snapshot:
+        mastery = await MasteryService.get_summary(state['persona_id'])
+        state['mastery_summary'] = mastery
+    else:
+        state['mastery_summary'] = None
+    return state
+4.7  graph/nodes/etm_node.py  (Ethical Time Machine)
+# TDD FIRST: write tests/test_etm_node.py before this file.
+import json
+import os
+from graph.state import PMEState
+from core.config import settings
+async def etm_node(state: PMEState) -> PMEState:
+    """
+    Checks evolution_db.json for concepts that have evolved.
+    If the user's message mentions an evolved concept, injects
+    evolution context so the persona_node can reference it.
+    Runs BEFORE socratic_node. Sets etm_context and etm_matched.
+    """
+    state['etm_context'] = None
+    state['etm_matched'] = False
+    db_path = os.path.join(settings.PERSONA_DIR,
+                           state['persona_id'], 'evolution_db.json')
+    if not os.path.exists(db_path):
+        return state
+    with open(db_path) as f:
+        evolution_db: list = json.load(f)
+    user_msg_lower = state['user_message'].lower()
+    for entry in evolution_db:
+        # Simple keyword match on concept_key and related terms
+        keywords = [entry['concept_key']] + entry.get('keywords', [])
+        if any(kw.lower() in user_msg_lower for kw in keywords):
+            state['etm_context'] = (
+                f"EVOLUTION NOTE for persona: Regarding '{entry['concept_key']}': "
+                f"Old advice (pre-{entry['evolution_year']}): {entry['old_advice']}. "
+                f"Current evolved stance: {entry['new_advice']}. "
+                f"Frame this as your own growth — do not mention an AI filter."
+            )
+            state['etm_matched'] = True
+            break  # only inject first matching evolution
+    return state
+4.8  graph/nodes/socratic_node.py
+This is the most complex node. It has two responsibilities: (1) compute deviation and select ladder level, (2) emit a mastery_event for the background task. It NEVER gives the answer at levels 1-3.
+# TDD FIRST: write tests/test_socratic_node.py before this file.
+# Context7: resolve llama-index before writing this file.
+import numpy as np
+from graph.state import PMEState
+from rag.retriever import retriever
+from services.mastery_service import MasteryService
+from core.config import settings
+SOCRATIC_PROMPTS = {
+    0: None,  # silent
+    1: ("{mentor_name}, notice the approach the user is taking. "",
+        "Ask ONE probing question about the fundamental constraint. "",
+        "Do NOT name the error. Do NOT give the answer."),
+    2: ("{mentor_name}, the user is struggling here. "",
+        "Reference this specific vault source: {vault_citation}. "",
+        "Point to it without explaining it. Ask if they remember it."),
+    3: ("{mentor_name}, explain the CONSEQUENCE of what the user is doing. "",
+        "Be as blunt as your abrasiveness level ({abrasiveness}/100) demands. "",
+        "Still do NOT give the fix."),
+    4: ("{mentor_name}, give the direct solution. Then immediately ask: "",
+        "'Now tell me WHY that works.' Do not move on until they answer."),
+}
+async def socratic_node(state: PMEState) -> PMEState:
+    """
+    Computes deviation score, selects Socratic Ladder level,
+    fetches vault citation if needed, emits mastery_event.
+    """
+    # In Friend Mode: always silent, no Socratic intervention
+    if state['mode'] == 'friend_mode':
+        state['deviation_score'] = 0.0
+        state['socratic_level'] = 0
+        state['vault_citation'] = None
+        state['mastery_event'] = None
+        return state
+    # 1. Embed user message and compute deviation
+    score = await _compute_deviation(
+        state['user_message'], state['persona_id']
+    )
+    state['deviation_score'] = score
+    # 2. Determine base ladder level from deviation score
+    threshold = settings.DEVIATION_THRESHOLD
+    if score < threshold:
+        base_level = 0
+    elif score < threshold + 0.1:
+        base_level = 1
+    elif score < threshold + 0.2:
+        base_level = 2
+    elif score < threshold + 0.3:
+        base_level = 3
+    else:
+        base_level = 4
+    # 3. Mastery-aware adjustment (only if deviation triggered)
+    if base_level > 0:
+        concept_key = await _extract_concept_key(state['user_message'])
+        if concept_key:
+            ledger_entry = await MasteryService.get_concept(
+                state['persona_id'], concept_key
+            )
+            if ledger_entry:
+                if ledger_entry.status == 'struggling':
+                    base_level = max(base_level, 2)  # skip level 1
+                if ledger_entry.failure_count >= 5:
+                    base_level = max(base_level, 3)  # skip to critique
+                # Check per-session failure count for level 4
+                snapshot = state.get('session_snapshot') or {}
+                session_failures = snapshot.get('failure_counts', {})
+                if session_failures.get(concept_key, 0) >= 3:
+                    base_level = 4
+    state['socratic_level'] = base_level
+    # 4. Fetch vault citation for levels 2+
+    if base_level >= 2:
+        citation = await retriever.get_citation(
+            state['user_message'], state['persona_id']
+        )
+        state['vault_citation'] = citation
+    else:
+        state['vault_citation'] = None
+    # 5. Emit mastery_event for BackgroundTask
+    outcome = 'correct' if base_level == 0 else 'incorrect'
+    state['mastery_event'] = {
+        'persona_id':        state['persona_id'],
+        'session_id':        state['session_id'],
+        'user_message':      state['user_message'],
+        'outcome':           outcome,
+        'socratic_level':    base_level,
+    }
+    return state
+async def _compute_deviation(message: str, persona_id: str) -> float:
+    """
+    Embeds the user message and computes cosine distance from vault gold standard.
+    Returns a float 0.0 (no deviation) to 1.0 (maximum deviation).
+    """
+    results = await retriever.query(message, persona_id, top_k=1)
+    if not results:
+        return 0.0  # no vault data = no deviation judgment possible
+    similarity = results[0].score  # cosine similarity 0-1
+    return 1.0 - similarity  # deviation = inverse of similarity
+async def _extract_concept_key(message: str) -> str | None:
+    """
+    Extracts a simple concept key from the user message via a short LLM call.
+    Returns a snake_case key like 'tcp_handshake' or None if no concept found.
+    """
+    from services.ollama_service import ollama_service
+    from core.config import settings
+    prompt = (
+        f"Extract the main technical concept from this message as a single "",
+        f"snake_case identifier (e.g. 'tcp_handshake', 'buffer_overflow'). "",
+        f"If no specific concept, respond with 'none'. Message: {message[:200]}"
+    )
+    result = await ollama_service.chat(
+        model=settings.OLLAMA_MODEL, system='You extract concept keys.',
+        message=prompt
+    )
+    key = result.strip().lower().replace(' ', '_')
+    return None if key == 'none' else key[:50]  # cap key length
+4.9  graph/nodes/persona_node.py
+# TDD FIRST: write tests/test_persona_node.py before this file.
+from graph.state import PMEState
+from services.persona_service import PersonaService
+from services.ollama_service import ollama_service
+from core.config import settings
+async def persona_node(state: PMEState) -> PMEState:
+    """
+    Loads the persona profile, builds the style-transfer system prompt,
+    calls OllamaService, and stores the styled response.
+    The persona changes HOW the answer is expressed, not WHAT it says.
+    """
+    profile = await PersonaService.load(state['persona_id'])
+    system_prompt = _build_system_prompt(
+        profile=profile,
+        socratic_level=state['socratic_level'],
+        vault_citation=state.get('vault_citation'),
+        etm_context=state.get('etm_context'),
+        mode=state['mode'],
+    )
+    history = []
+    if state.get('session_snapshot'):
+        history = state['session_snapshot'].get('chat_history', [])
+        history = [{'role': m['role'], 'content': m['content']}
+                   for m in history[-20:]]  # last 20 turns max
+    response = await ollama_service.chat(
+        model=settings.OLLAMA_MODEL,
+        system=system_prompt,
+        message=state['user_message'],
+        history=history,
+    )
+    state['raw_llm_response'] = response
+    state['styled_response'] = response
+    return state
+def _build_system_prompt(profile: dict, socratic_level: int,
+                          vault_citation: str | None,
+                          etm_context: str | None,
+                          mode: str) -> str:
+    """
+    Constructs the full system prompt for this interaction.
+    ORDERING: persona identity → style rules → ETM context → socratic instruction.
+    """
+    soul = profile.get('soul', {})
+    sliders = profile.get('sliders', {})
+    abrasiveness = sliders.get('abrasiveness', 50)
+    explain_depth = sliders.get('explain_depth', 50)
+    few_shots = '\n'.join([
+        f"User: {ex['user']}\n{profile['name']}: {ex['mentor']}"
+        for ex in soul.get('few_shot_examples', [])[:12]
+    ])
+    socratic_instruction = ''
+    if socratic_level == 0 or mode == 'friend_mode':
+        socratic_instruction = 'Respond naturally.'
+    elif socratic_level == 1:
+        socratic_instruction = ('Ask ONE probing question about the fundamental constraint. '
+                                'Do NOT name the error. Do NOT give the answer.')
+    elif socratic_level == 2:
+        citation_ref = vault_citation or 'a relevant concept from your knowledge'
+        socratic_instruction = f'Reference this source: {citation_ref}. Point to it. Do not explain it.'
+    elif socratic_level == 3:
+        socratic_instruction = ('Explain the consequence of the current approach. '
+                                f'Be {'very blunt' if abrasiveness > 70 else 'direct'}. '
+                                'Still do NOT give the fix.')
+    elif socratic_level == 4:
+        socratic_instruction = ('Give the direct solution. Then immediately ask: '
+                                '"Now tell me WHY that works."')
+    etm_section = f'\n\nEVOLUTION CONTEXT:\n{etm_context}' if etm_context else ''
+    return f"""You are {profile['name']}.
+PERSONALITY:
+{profile.get('description', '')}
+YOUR COMMUNICATION RULES:
+- Abrasiveness level: {abrasiveness}/100 (0=gentle professor, 100=drill sergeant)
+- Explain depth: {explain_depth}/100 (0=just do it, 100=explain everything)
+- You are NEVER polite for politeness sake.
+- You speak from your own worldview and biases.
+- You do NOT identify as an AI.
+- {'This is a casual conversation. Relax. Be yourself.' if mode == 'friend_mode' else 'The user is in a focused learning session.'}
+YOUR VOCABULARY AND STYLE (examples of how YOU speak):
+{few_shots}
+YOUR PHILOSOPHY (rules you live by):
+{chr(10).join(soul.get('philosophy_tags', []))}
+{etm_section}
+CURRENT INSTRUCTION FOR THIS RESPONSE:
+{socratic_instruction}"""
+4.10  graph/nodes/guardian_node.py
+⚠ DO NOT: Load the classifier model at import time — it costs 260 MB RAM. Use lazy loading.
+⚠ DO NOT: Use a generic safety message like 'I cannot help with that' — always rewrite in-character.
+# TDD FIRST: write tests/test_guardian_node.py before this file.
+# Load classifier lazily — only on first use, not at module import.
+from graph.state import PMEState
+from core.config import settings
+import logging
+logger = logging.getLogger(__name__)
+FLAGGED_CATEGORIES = ['illegal_instruction', 'dangerous_technical', 'pii_leak']
+_classifier = None  # lazy-loaded on first use
+def _get_classifier():
+    """Lazy-load the DistilBERT classifier on first call."""
+    global _classifier
+    if _classifier is None:
+        from transformers import pipeline
+        _classifier = pipeline(
+            'text-classification',
+            model=settings.GUARDIAN_MODEL,
+            device=-1,  # CPU only (no GPU on 8 GB machine)
+        )
+    return _classifier
+async def guardian_node(state: PMEState) -> PMEState:
+    """
+    Last node before response delivery.
+    Runs shadow classifier on styled_response.
+    If flagged: rewrites in-character via OllamaService.
+    If classifier fails: logs error and passes response through unchanged.
+    """
+    try:
+        clf = _get_classifier()
+        result = clf(state['styled_response'][:512])  # truncate for speed
+        label = result[0]['label']
+        is_flagged = label in FLAGGED_CATEGORIES
+    except Exception as e:
+        logger.error(f'Guardian classifier failed: {e}. Passing through.')
+        state['guardian_flagged'] = False
+        state['final_response'] = state['styled_response']
+        return state
+    state['guardian_flagged'] = is_flagged
+    if is_flagged:
+        from services.ollama_service import ollama_service
+        from services.persona_service import PersonaService
+        profile = await PersonaService.load(state['persona_id'])
+        rewrite_prompt = (
+            f"The following advice was flagged as potentially harmful. "
+            f"Rewrite it entirely in the voice of {profile['name']} to redirect "
+            f"to a safe, legal alternative. Frame it as your OWN evolved thinking — "
+            f"'I used to do X, but I learned better.' Do NOT say 'I cannot help'. "
+            f"Do NOT break character. Do NOT mention AI, safety, or filters.\n\n"
+            f"Original: {state['styled_response']}"
+        )
+        rewritten = await ollama_service.chat(
+            model=settings.OLLAMA_MODEL,
+            system=f'You are {profile["name"]}. Respond only as that person.',
+            message=rewrite_prompt,
+        )
+        state['styled_response'] = rewritten
+    state['final_response'] = state['styled_response']
+    return state
+4.11  services/mastery_service.py
+⚠ DO NOT: Use magic numbers for score increments — they must be settings constants
+# TDD FIRST: write tests/test_mastery_node.py and test_cert_node.py before this file.
+# Context7: resolve sqlalchemy before writing this file.
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from models.mastery import MasteryLedger, MasteryCertificate
+from core.config import settings
+from core.database import AsyncSessionLocal
+from typing import Optional
+import uuid, json, datetime
+SCORE_INCREMENT = settings.MASTERY_SCORE_INCREMENT
+SCORE_DECREMENT = settings.MASTERY_SCORE_DECREMENT
+class MasteryService:
+    @staticmethod
+    async def get_or_create(persona_id: str, concept_key: str,
+                            concept_label: str) -> MasteryLedger:
+        """Get existing concept or create a new entry with defaults."""
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(MasteryLedger).where(
+                    MasteryLedger.persona_id == persona_id,
+                    MasteryLedger.concept_key == concept_key,
+                )
+            )
+            entry = result.scalar_one_or_none()
+            if not entry:
+                entry = MasteryLedger(
+                    concept_id=str(uuid.uuid4()),
+                    persona_id=persona_id,
+                    concept_key=concept_key,
+                    concept_label=concept_label,
+                    status='encountered',
+                    mastery_score=0.0,
+                    sessions_tested=json.dumps([]),
+                    vault_sources=json.dumps([]),
+                )
+                db.add(entry)
+                await db.commit()
+                await db.refresh(entry)
+            return entry
+    @staticmethod
+    def compute_new_score(current: float, outcome: str) -> float:
+        """
+        Deterministic, auditable score formula.
+        Uses NAMED CONSTANTS (never magic numbers).
+        Clamps result to [0.0, 1.0].
+        """
+        if outcome == 'correct':
+            delta = SCORE_INCREMENT
+        elif outcome == 'incorrect':
+            delta = -SCORE_DECREMENT
+        else:  # partial
+            delta = SCORE_INCREMENT * 0.5
+        return max(0.0, min(1.0, current + delta))
+    @staticmethod
+    def compute_status(score: float, failure_count: int) -> str:
+        """Compute status string from score and failure count."""
+        if score >= settings.MASTERY_CERT_THRESHOLD:
+            return 'mastered'
+        elif score < 0.4 and failure_count >= 3:
+            return 'struggling'
+        elif score >= 0.2:
+            return 'attempted'
+        return 'encountered'
+    @staticmethod
+    async def should_certify(persona_id: str,
+                             concept_key: str) -> bool:
+        """
+        Returns True only if ALL cert conditions are met.
+        See SRS REQ-CERT-001 for the full list.
+        """
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(MasteryLedger).where(
+                    MasteryLedger.persona_id == persona_id,
+                    MasteryLedger.concept_key == concept_key,
+                )
+            )
+            entry = result.scalar_one_or_none()
+            if not entry:
+                return False
+            sessions = json.loads(entry.sessions_tested or '[]')
+            # Check for existing cert
+            cert_result = await db.execute(
+                select(MasteryCertificate).where(
+                    MasteryCertificate.persona_id == persona_id,
+                    MasteryCertificate.concept_key == concept_key,
+                )
+            )
+            if cert_result.scalar_one_or_none():
+                return False  # already certified
+            return (
+                entry.mastery_score >= settings.MASTERY_CERT_THRESHOLD
+                and len(sessions) >= settings.MASTERY_CERT_MIN_SESSIONS
+                and entry.success_count >= settings.MASTERY_CERT_MIN_SUCCESSES
+            )
+4.12  graph/nodes/mastery_node.py  (BackgroundTask)
+⚠ DO NOT: Call this from the main LangGraph graph
+✓ DO: Call this from FastAPI BackgroundTasks in api/chat.py AFTER the response is sent
+# TDD FIRST — this is the MOST CRITICAL test target (NFR-008)
+# Every mastery scoring test must pass before this file is implemented.
+from services.mastery_service import MasteryService
+from graph.nodes.cert_node import cert_node
+from core.database import AsyncSessionLocal
+from models.mastery import MasteryLedger
+from sqlalchemy import select
+import json, logging
+logger = logging.getLogger(__name__)
+async def process_mastery_event(event: dict) -> None:
+    """
+    Processes a mastery_event emitted by socratic_node.
+    Runs as a FastAPI BackgroundTask — NEVER in the main graph.
+    Updates MasteryLedger. Triggers cert_node if conditions are met.
+    If this function fails for any reason, it logs and returns quietly.
+    It MUST NOT propagate exceptions to the API layer.
+    """
+    try:
+        persona_id  = event['persona_id']
+        session_id  = event['session_id']
+        user_message= event['user_message']
+        outcome     = event['outcome']
+        # Extract concept key (short LLM call)
+        from graph.nodes.socratic_node import _extract_concept_key
+        concept_key = await _extract_concept_key(user_message)
+        if not concept_key:
+            return  # no concept identifiable — skip update
+        concept_label = concept_key.replace('_', ' ').title()
+        entry = await MasteryService.get_or_create(
+            persona_id, concept_key, concept_label
+        )
+        # Update counts
+        new_score = MasteryService.compute_new_score(entry.mastery_score, outcome)
+        sessions = json.loads(entry.sessions_tested or '[]')
+        if session_id not in sessions:
+            sessions.append(session_id)
+        # Update DB
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(MasteryLedger).where(
+                    MasteryLedger.concept_id == entry.concept_id
+                )
+            )
+            row = result.scalar_one()
+            row.mastery_score   = new_score
+            row.status          = MasteryService.compute_status(
+                new_score, row.failure_count
+            )
+            row.encounter_count += 1
+            if outcome == 'correct':
+                row.success_count += 1
+            elif outcome == 'incorrect':
+                row.failure_count += 1
+            row.sessions_tested = json.dumps(sessions)
+            import datetime
+            row.last_tested = datetime.datetime.utcnow().isoformat()
+            await db.commit()
+        # Check if this concept now qualifies for certification
+        if await MasteryService.should_certify(persona_id, concept_key):
+            await cert_node(persona_id, concept_key, concept_label, entry)
+    except Exception as e:
+        logger.error(f'mastery_node background task failed: {e}', exc_info=True)
+        # Do NOT re-raise. The user must never see this error.
+4.13  graph/nodes/cert_node.py
+# TDD FIRST: write tests/test_cert_node.py before this file.
+import uuid, json, os, datetime, logging
+from services.ollama_service import ollama_service
+from services.persona_service import PersonaService
+from core.config import settings
+from core.database import AsyncSessionLocal
+from models.mastery import MasteryCertificate
+logger = logging.getLogger(__name__)
+async def cert_node(persona_id: str, concept_key: str,
+                     concept_label: str, ledger_entry) -> None:
+    """
+    Generates and stores a Proof of Mastery certificate.
+    Called ONLY from mastery_node when should_certify() returns True.
+    Runs ASYNCHRONOUSLY — never in the main response path.
+    Cert is stored with delivered=0 and shown at NEXT session start.
+    """
+    try:
+        profile = await PersonaService.load(persona_id)
+        # Build the certification prompt
+        prompt = (
+            f"You are {profile['name']}. A student has genuinely mastered '{concept_label}'. "
+            f"Write a certification statement IN YOUR OWN VOICE. "
+            f"Reference the evidence: they were tested in {ledger_entry.encounter_count} encounters, "
+            f"succeeded {ledger_entry.success_count} times. "
+            f"Express what mastery means TO YOU for this concept. "
+            f"State clearly that you trust them to work on this independently. "
+            f"Speak ONLY as {profile['name']} — no AI voice, no system language. "
+            f"3-5 sentences."
+        )
+        cert_text = await ollama_service.chat(
+            model=settings.OLLAMA_MODEL,
+            system=f"You are {profile['name']}.",
+            message=prompt,
+        )
+        evidence = {
+            'sessions_tested': len(json.loads(ledger_entry.sessions_tested or '[]')),
+            'success_count':   ledger_entry.success_count,
+            'failure_count':   ledger_entry.failure_count,
+            'mastery_score':   ledger_entry.mastery_score,
+        }
+        cert_id   = str(uuid.uuid4())
+        issued_at = datetime.datetime.utcnow().isoformat()
+        cert_dir  = os.path.join(settings.MASTERY_CERT_DIR, persona_id)
+        os.makedirs(cert_dir, exist_ok=True)
+        cert_path = os.path.join(cert_dir, f'{concept_key}.json')
+        cert_data = {
+            'cert_id':          cert_id,
+            'persona_id':       persona_id,
+            'concept_key':      concept_key,
+            'concept_label':    concept_label,
+            'issued_at':        issued_at,
+            'mentor_statement': cert_text,
+            'evidence_summary': evidence,
+        }
+        with open(cert_path, 'w') as f:
+            json.dump(cert_data, f, indent=2)
+        # Store in SQLite
+        async with AsyncSessionLocal() as db:
+            cert = MasteryCertificate(
+                cert_id          = cert_id,
+                persona_id       = persona_id,
+                concept_key      = concept_key,
+                concept_label    = concept_label,
+                issued_at        = issued_at,
+                mentor_statement = cert_text,
+                evidence_summary = json.dumps(evidence),
+                cert_json_path   = cert_path,
+                delivered        = 0,  # will be delivered next session
+            )
+            db.add(cert)
+            await db.commit()
+        logger.info(f'Cert issued: {persona_id}/{concept_key}')
+    except Exception as e:
+        logger.error(f'cert_node failed: {e}', exc_info=True)
+        # Do NOT re-raise.
+4.14  main.py  —  FastAPI Entry Point
+# Context7: resolve fastapi before writing this file.
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from core.database import init_db
+from core.config import settings
+from api import chat, persona, session, ingest, workspace, mastery
+import logging
+logging.basicConfig(level=settings.LOG_LEVEL)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+app = FastAPI(title='PME API', version='1.0.0', lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
+app.include_router(chat.router,      prefix='/chat',      tags=['chat'])
+app.include_router(persona.router,   prefix='/persona',   tags=['persona'])
+app.include_router(session.router,   prefix='/session',   tags=['session'])
+app.include_router(ingest.router,    prefix='/ingest',    tags=['ingest'])
+app.include_router(workspace.router, prefix='/workspace', tags=['workspace'])
+app.include_router(mastery.router,   prefix='/mastery',   tags=['mastery'])
+@app.get('/health')
+async def health_check():
+    from services.ollama_service import ollama_service
+    online = await ollama_service.check_health()
+    return {'success': True, 'data': {'ollama_online': online}, 'error': None}
+4.15  api/chat.py  —  Main Chat Endpoint
+from fastapi import APIRouter, BackgroundTasks, WebSocket, WebSocketDisconnect
+from graph.orchestrator import pme_graph
+from graph.nodes.mastery_node import process_mastery_event
+from models.schemas import ChatRequest, ChatResponse
+import uuid
+router = APIRouter()
+@router.post('/message', response_model=dict)
+async def send_message(req: ChatRequest,
+                       background_tasks: BackgroundTasks):
+    """
+    Main chat endpoint. Runs the full LangGraph pipeline.
+    Triggers mastery_event processing as a BackgroundTask AFTER response.
+    Returns: {success, data: ChatResponse, error}
+    """
+    initial_state = {
+        'session_id':     req.session_id or str(uuid.uuid4()),
+        'persona_id':     req.persona_id,
+        'user_message':   req.message,
+        'workspace_event':None,
+        'is_returning_user': False,
+        'session_snapshot':  None,
+        'mastery_summary':   None,
+        'etm_context':       None,
+        'etm_matched':       False,
+        'deviation_score':   0.0,
+        'socratic_level':    0,
+        'vault_citation':    None,
+        'mastery_event':     None,
+        'raw_llm_response':  '',
+        'styled_response':   '',
+        'guardian_flagged':  False,
+        'final_response':    '',
+        'mode':              req.mode or 'deep_dive',
+    }
+    try:
+        result = await pme_graph.ainvoke(initial_state)
+    except Exception as e:
+        return {'success': False, 'data': None, 'error': str(e)}
+    # Schedule mastery update as BackgroundTask (non-blocking)
+    if result.get('mastery_event'):
+        background_tasks.add_task(
+            process_mastery_event, result['mastery_event']
+        )
+    return {
+        'success': True,
+        'data': {
+            'response':         result['final_response'],
+            'socratic_level':   result['socratic_level'],
+            'vault_citation':   result.get('vault_citation'),
+            'guardian_flagged': result['guardian_flagged'],
+            'session_id':       result['session_id'],
+        },
+        'error': None,
+    }
+@router.websocket('/ws/{session_id}')
+async def websocket_chat(websocket: WebSocket, session_id: str):
+    """Streaming WebSocket version — yields tokens as they arrive from Ollama."""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            # Build state same as above, then stream
+            # ... (same pattern, use ollama_service.stream())
+            await websocket.send_json({'type': 'done'})
+    except WebSocketDisconnect:
+        pass
+5.  API Endpoint Reference
+6.  Frontend Design System
+DESIGN BRIEF: The aesthetic is 'Terminal Noir'. Dark backgrounds. Amber (#FF9F0A) as the sole accent colour in Deep Dive mode. IBM Plex Mono for code/labels, DM Sans for prose. No bouncy animations — only subtle fade-ins and slide-ups. The UI must feel like a professional tool, not a consumer app.
+6.1  globals.css  —  Design Tokens
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono&display=swap');
+:root {
+  /* Backgrounds */
+  --bg-base:      #0D0D0D;
+  --bg-surface:   #1C1C1E;
+  --bg-raised:    #2C2C2E;
+  --bg-overlay:   #3A3A3C;
+  /* Text */
+  --text-primary:   #F5F5F7;
+  --text-secondary: #AEAEB2;
+  --text-muted:     #636366;
+  /* Accent — changes with mode */
+  --accent:       #FF9F0A;   /* Deep Dive: amber */
+  --accent-dim:   #7A4A00;
+  --accent-glow:  rgba(255,159,10,0.15);
+  /* Friend Mode accent (overridden by .friend-mode class on body) */
+  --accent-friend: #0A84FF;
+  /* Semantic */
+  --success:      #30D158;
+  --danger:       #FF453A;
+  --info:         #0A84FF;
+  /* Socratic Badge Colours */
+  --socratic-0:   #636366;   /* silent    — grey   */
+  --socratic-1:   #636366;   /* nudge     — grey   */
+  --socratic-2:   #0A84FF;   /* hint      — blue   */
+  --socratic-3:   #FF9F0A;   /* critique  — amber  */
+  --socratic-4:   #FF453A;   /* reveal    — red    */
+  /* Mastery Status Colours */
+  --mastery-encountered: #636366;
+  --mastery-attempted:   #0A84FF;
+  --mastery-struggling:  #FF9F0A;
+  --mastery-mastered:    #30D158;
+  /* Typography */
+  --font-sans:  'DM Sans', sans-serif;
+  --font-mono:  'IBM Plex Mono', monospace;
+  /* Layout */
+  --sidebar-w:    260px;
+  --statusbar-h:  32px;
+  --radius-sm:    4px;
+  --radius-md:    8px;
+  --radius-lg:    16px;
+}
+body.friend-mode { --accent: var(--accent-friend); }
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+}
+/* Focus Mode: dim everything outside chat pane */
+body.focus-mode .sidebar,
+body.focus-mode .status-bar { opacity: 0.15; transition: opacity 0.3s; }
+6.2  WorkspaceShell.tsx  —  Root Component
+This is the OUTERMOST component. It wraps everything else. It manages the opening ritual state machine, pending cert check, and Focus Mode dim effect.
+// Context7: resolve react, framer-motion before writing this file
+import { useState, useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { OpeningRitual } from '../session/OpeningRitual'
+import { MasteryCertModal } from '../mastery/MasteryCertModal'
+import { ResumeModal } from '../session/ResumeModal'
+import { Shell } from './Shell'
+import { useSession } from '../../hooks/useSession'
+import { useMastery } from '../../hooks/useMastery'
+import { useSessionStore } from '../../store/sessionStore'
+type RitualState = 'opening' | 'cert' | 'resume' | 'workspace'
+export function WorkspaceShell() {
+  const [ritualState, setRitualState] = useState<RitualState>('opening')
+  const { mode, snapshot } = useSessionStore()
+  const { pendingCerts, markDelivered } = useMastery()
+  // Progress through ritual states in order
+  const handleRitualComplete = () => setRitualState(
+    pendingCerts.length > 0 ? 'cert' :
+    snapshot             ? 'resume' :
+    'workspace'
+  )
+  const handleCertClose = async (certId: string) => {
+    await markDelivered(certId)
+    setRitualState(snapshot ? 'resume' : 'workspace')
+  }
+  const handleResumeClose = () => setRitualState('workspace')
+  return (
+    <div className={`workspace-root ${mode === 'friend_mode' ? 'friend-mode' : ''}`}>
+      <AnimatePresence mode='wait'>
+        {ritualState === 'opening' && (
+          <OpeningRitual key='ritual' onComplete={handleRitualComplete} />
+        )}
+        {ritualState === 'cert' && pendingCerts[0] && (
+          <MasteryCertModal key='cert'
+            cert={pendingCerts[0]}
+            onClose={() => handleCertClose(pendingCerts[0].cert_id)} />
+        )}
+        {ritualState === 'resume' && snapshot && (
+          <ResumeModal key='resume'
+            snapshot={snapshot}
+            onContinue={handleResumeClose}
+            onStartFresh={handleResumeClose} />
+        )}
+        {ritualState === 'workspace' && (
+          <Shell key='shell' />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+6.3  SocraticBadge.tsx  —  Always Visible on Mentor Messages
+⚠ DO NOT: Hide this badge for any reason — it must ALWAYS be visible
+const BADGE_CONFIG = {
+  0: { label: 'silent',   color: 'var(--socratic-0)' },
+  1: { label: 'nudge',    color: 'var(--socratic-1)' },
+  2: { label: 'hint',     color: 'var(--socratic-2)' },
+  3: { label: 'critique', color: 'var(--socratic-3)' },
+  4: { label: 'reveal',   color: 'var(--socratic-4)' },
+} as const
+export function SocraticBadge({ level }: { level: 0|1|2|3|4 }) {
+  const config = BADGE_CONFIG[level]
+  return (
+    <span style={{
+      backgroundColor: config.color + '22',  // 13% opacity background
+      color:  config.color,
+      border: `1px solid ${config.color}`,
+      borderRadius: 'var(--radius-sm)',
+      padding: '1px 6px',
+      fontSize: '11px',
+      fontFamily: 'var(--font-mono)',
+      letterSpacing: '0.05em',
+      textTransform: 'uppercase',
+    }}>
+      {config.label}
+    </span>
+  )
+}
+7.  VS Code Extension
+7.1  vscode-extension/package.json
+{
+  "name": "pme-workspace-monitor",
+  "displayName": "PME Workspace Monitor",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.89.0" },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [{
+      "command": "pme.openChat",
+      "title": "PME: Open Mentor Chat"
+    }]
+  },
+  "dependencies": { "axios": "^1.7.0" },
+  "devDependencies": {
+    "@types/vscode": "^1.89.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.26.0"
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json"
+  }
+}
+7.2  vscode-extension/src/extension.ts  —  Complete Implementation
+⚠ DO NOT: Let errors from axios.post propagate — always wrap in try/catch. VS Code must never crash because of PME.
+import * as vscode from 'vscode'
+import axios from 'axios'
+const PME_URL = 'http://localhost:8000/workspace/event'
+let idleTimer: NodeJS.Timeout | undefined
+const IDLE_MS = 300_000  // 5 minutes — matches backend IDLE_TRIGGER_SECONDS
+async function postEvent(payload: object): Promise<void> {
+  try { await axios.post(PME_URL, payload, { timeout: 3000 }) }
+  catch { /* never crash VS Code */ }
+}
+function isError(text: string): boolean {
+  return /error|exception|traceback|failed|syntaxerror|typeerror/i.test(text)
+}
+function resetIdleTimer(): void {
+  if (idleTimer) clearTimeout(idleTimer)
+  idleTimer = setTimeout(() => {
+    postEvent({ type: 'idle', duration_seconds: 300 })
+  }, IDLE_MS)
+}
+export function activate(ctx: vscode.ExtensionContext): void {
+  // 1. Watch terminal output for errors
+  ctx.subscriptions.push(
+    vscode.window.onDidWriteTerminalData(e => {
+      if (isError(e.data)) {
+        postEvent({ type: 'terminal_error', content: e.data.slice(0, 1000) })
+      }
+    })
+  )
+  // 2. Watch for file saves
+  ctx.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument(doc => {
+      postEvent({
+        type: 'file_save',
+        file: doc.fileName,
+        content: doc.getText().slice(0, 2000),  // 2000 chars max for privacy
+        language: doc.languageId,
+      })
+    })
+  )
+  // 3. Idle detection — reset timer on every keystroke
+  ctx.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument(() => resetIdleTimer())
+  )
+  // 4. Register command to open PME chat in browser
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand('pme.openChat', () => {
+      vscode.env.openExternal(vscode.Uri.parse('http://localhost:5173'))
+    })
+  )
+  resetIdleTimer()  // start idle timer immediately on activation
+}
+export function deactivate(): void {
+  if (idleTimer) clearTimeout(idleTimer)
+}
+8.  TDD Test Suite Architecture
+8.1  conftest.py  —  Shared Fixtures
+import pytest
+from unittest.mock import AsyncMock
+@pytest.fixture
+def mock_ollama():
+    """Mock OllamaService that returns a controlled string."""
+    svc = AsyncMock()
+    svc.chat.return_value = 'Mock mentor response.'
+    svc.check_health.return_value = True
+    return svc
+@pytest.fixture
+def mock_chroma():
+    """Ephemeral in-memory ChromaDB — never writes to disk."""
+    import chromadb
+    return chromadb.Client()  # ephemeral client
+@pytest.fixture
+def base_state() -> dict:
+    """A minimal valid PMEState for testing nodes."""
+    return {
+        'session_id': 'test-session-001',
+        'persona_id': 'test-persona-001',
+        'user_message': 'How do I fix this loop?',
+        'workspace_event': None,
+        'is_returning_user': False,
+        'session_snapshot': None,
+        'mastery_summary': None,
+        'etm_context': None,
+        'etm_matched': False,
+        'deviation_score': 0.0,
+        'socratic_level': 0,
+        'vault_citation': None,
+        'mastery_event': None,
+        'raw_llm_response': '',
+        'styled_response': '',
+        'guardian_flagged': False,
+        'final_response': '',
+        'mode': 'deep_dive',
+    }
+8.2  test_mastery_node.py  —  Critical TDD Target
+Write ALL these tests BEFORE implementing mastery_service.py. Each test must fail first, then pass after implementation. This is NFR-008: the tests ARE the formal audit of the scoring formula.
+import pytest
+from services.mastery_service import MasteryService
+from core.config import settings
+class TestMasteryScoreFormula:
+    def test_correct_increases_score(self):
+        new = MasteryService.compute_new_score(0.3, 'correct')
+        assert new == pytest.approx(0.3 + settings.MASTERY_SCORE_INCREMENT)
+    def test_incorrect_decreases_score(self):
+        new = MasteryService.compute_new_score(0.6, 'incorrect')
+        assert new == pytest.approx(0.6 - settings.MASTERY_SCORE_DECREMENT)
+    def test_score_never_exceeds_1(self):
+        new = MasteryService.compute_new_score(0.99, 'correct')
+        assert new <= 1.0
+    def test_score_never_below_0(self):
+        new = MasteryService.compute_new_score(0.01, 'incorrect')
+        assert new >= 0.0
+    def test_partial_gets_half_increment(self):
+        new = MasteryService.compute_new_score(0.5, 'partial')
+        expected = 0.5 + settings.MASTERY_SCORE_INCREMENT * 0.5
+        assert new == pytest.approx(expected)
+class TestMasteryStatus:
+    def test_mastered_at_threshold(self):
+        status = MasteryService.compute_status(settings.MASTERY_CERT_THRESHOLD, 0)
+        assert status == 'mastered'
+    def test_struggling_below_0_4_with_3_failures(self):
+        status = MasteryService.compute_status(0.3, 3)
+        assert status == 'struggling'
+    def test_attempted_between_0_2_and_0_4(self):
+        status = MasteryService.compute_status(0.3, 0)
+        assert status == 'attempted'
+    def test_encountered_below_0_2(self):
+        status = MasteryService.compute_status(0.1, 0)
+        assert status == 'encountered'
+class TestShouldCertify:
+    @pytest.mark.asyncio
+    async def test_cert_not_issued_below_score_threshold(self, test_db):
+        # Create an entry with score below threshold
+        # Call should_certify → expect False
+        ...
+    @pytest.mark.asyncio
+    async def test_cert_not_issued_below_session_minimum(self, test_db):
+        # Create entry with good score but < 3 sessions
+        # Call should_certify → expect False
+        ...
+    @pytest.mark.asyncio
+    async def test_cert_not_issued_if_already_exists(self, test_db):
+        # Create entry with all conditions met + existing cert
+        # Call should_certify → expect False
+        ...
+    @pytest.mark.asyncio
+    async def test_cert_issued_when_all_conditions_met(self, test_db):
+        # Create entry with score >= 0.8, sessions >= 3, successes >= 5
+        # Call should_certify → expect True
+        ...
+8.3  Running Tests
+# Install test dependencies (run once):
+cd backend
+source .venv/bin/activate
+pip install pytest pytest-asyncio pytest-cov httpx
+# Run all backend tests:
+pytest tests/ -v --cov=. --cov-report=term-missing
+# Run a specific test file:
+pytest tests/test_mastery_node.py -v
+# Frontend tests (install once):
+cd ../frontend
+npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+# Run frontend tests:
+npm run test -- --run
+# Phase gate — run before merging any phase branch:
+cd backend && pytest tests/ -v && cd ../frontend && npm run test -- --run
+# ALL tests must be green. No exceptions.
+9.  Build Phases  —  Exact Step-by-Step
+CODEX: Follow these phases in strict order. Each phase begins with Superpowers invocations. Each phase ends with a verification checklist. ALL checklist items must pass before starting the next phase. If a step says 'commit', make a git commit before proceeding.
+Phase 0  —  Bootstrap (Before Phase 1)
+Goal: Project scaffolding, git, environment, and test infrastructure ready.
+Create project root: mkdir -p pme && cd pme && git init
+Create CLAUDE.md / AGENTS.md at project root (content from Section 0.2)
+Create the FULL directory structure from Section 1.2 (mkdir -p for all dirs)
+Create backend/requirements.txt (content from Section 2.2)
+Create backend/.env.example (content from Section 2.3)
+Create docker-compose.yml, backend/Dockerfile, frontend/Dockerfile (content from Section 3)
+Run manual setup commands from Section 2.1 OR docker-compose up --build
+Create backend/tests/conftest.py (content from Section 8.1)
+Create ALL test files as empty files with one placeholder test that passes: test files listed in Section 0.1 Rule 3
+Run: pytest tests/ -v → must show 'passed' for placeholder tests
+git add . && git commit -m 'chore: Phase 0 — bootstrap'
+Phase 1  —  Core Engine
+Superpowers invocations (do these FIRST):
+# 1. Create isolated worktree:
+superpowers:using-git-worktrees
+# → creates branch pme/phase-1
+# 2. Generate task plan from SDD Phase 1 spec:
+superpowers:writing-plans
+# → presents plan to user — AWAIT APPROVAL before any code
+# 3. After approval, execute:
+superpowers:subagent-driven-development
+Files to implement (TDD-first for all backend files):
+core/config.py — exact code in Section 4.1
+core/database.py — exact code in Section 4.2
+models/session.py, models/persona.py, models/mastery.py, models/schemas.py
+services/ollama_service.py — exact code in Section 4.5
+services/persona_service.py, services/session_service.py
+services/mastery_service.py — STUB only: return empty/default values
+graph/state.py — exact code in Section 4.3
+graph/orchestrator.py — exact code in Section 4.4
+graph/nodes/memory_node.py — exact code in Section 4.6
+graph/nodes/etm_node.py — STUB: always sets etm_matched=False
+graph/nodes/socratic_node.py — STUB: always sets socratic_level=0
+graph/nodes/persona_node.py — exact code in Section 4.9
+graph/nodes/guardian_node.py — STUB: pass styled_response through unchanged
+graph/nodes/mastery_node.py — STUB: log event, do nothing
+graph/nodes/cert_node.py — STUB: do nothing
+api/chat.py, api/persona.py, api/session.py, api/workspace.py, api/mastery.py (stub)
+main.py — exact code in Section 4.14
+ALL frontend/src/ files — components, stores, hooks, types
+WorkspaceShell.tsx — exact code in Section 6.2
+SocraticBadge.tsx — exact code in Section 6.3
+# Phase 1 Verification Checklist:
+# ✓ docker-compose up --build → all 3 services start without error
+# ✓ curl http://localhost:8000/health → { ollama_online: true }
+# ✓ Open http://localhost:5173 → Opening ritual animation plays
+# ✓ Create a persona via PersonaBuilder wizard (5 steps complete)
+# ✓ Send a message → receive a response in mentor's style
+# ✓ Close browser, reopen → ResumeModal appears with last session
+# ✓ StatusBar shows Ollama online indicator
+# ✓ All backend tests green: pytest tests/ -v
+# ✓ All frontend tests green: npm run test -- --run
+git add . && git commit -m 'feat: Phase 1 — Core Engine complete'
+git checkout main && git merge pme/phase-1
+Phase 2  —  Ingestion + Socratic Engine
+superpowers:using-git-worktrees   # creates pme/phase-2
+superpowers:writing-plans         # plan for Phase 2 — await approval
+superpowers:subagent-driven-development  # execute after approval
+Context7 lookups required in this phase:
+resolve-library-id llama-index    # before rag/vault.py and rag/retriever.py
+resolve-library-id chromadb       # before rag/vault.py and rag/retriever.py
+resolve-library-id openai-whisper # before rag/vault.py (transcription section)
+resolve-library-id playwright     # before rag/fingerprint.py
+Files to implement:
+rag/vault.py — PDF, DOCX, MP4/MP3 ingestion + Whisper transcription + ChromaDB storage
+rag/fingerprint.py — YouTube, Twitter, LinkedIn scraping + linguistic profile extraction
+rag/retriever.py — TDD first. Dual-collection query + authority re-ranking + get_citation()
+graph/nodes/socratic_node.py — FULL implementation (exact code in Section 4.8)
+graph/nodes/etm_node.py — FULL implementation (exact code in Section 4.7)
+api/ingest.py — multipart upload + URL endpoints
+api/workspace.py — FULL: receive events, run socratic check on workspace events
+vscode-extension/src/extension.ts — exact code in Section 7.2
+vscode-extension/package.json — exact content in Section 7.1
+# Phase 2 Verification Checklist:
+# ✓ Upload a PDF via PersonaBuilder → ingest completes without error
+# ✓ Ask a question about PDF content → response includes vault_citation
+# ✓ SocraticBadge shows level > 0 when user sends an incorrect approach
+# ✓ VS Code extension compiles: cd vscode-extension && npm run compile
+# ✓ Trigger a terminal error in VS Code → /workspace/event receives it
+# ✓ All tests green
+git add . && git commit -m 'feat: Phase 2 — Socratic Engine complete'
+git checkout main && git merge pme/phase-2
+Phase 3  —  Mastery Tracking + ETM
+superpowers:using-git-worktrees   # creates pme/phase-3
+superpowers:writing-plans         # await approval
+superpowers:subagent-driven-development
+Files to implement:
+services/mastery_service.py — FULL implementation (exact code in Section 4.11)
+graph/nodes/mastery_node.py — FULL implementation as BackgroundTask (exact code in Section 4.12)
+models/mastery.py — FULL SQLAlchemy models for MasteryLedger and MasteryCertificate
+api/mastery.py — FULL endpoints: ledger, struggling, pending-certs, mark-delivered
+Update api/chat.py — add background_tasks.add_task(process_mastery_event, ...)
+Update socratic_node.py — add MasteryLedger reading for starting level
+rag/fingerprint.py — UPDATE: seed evolution_db.json during fingerprint ingestion
+frontend/src/components/mastery/MasteryMap.tsx — real data from GET /mastery/{pid}
+frontend/src/components/mastery/ConceptCard.tsx — status badge colours from CSS tokens
+frontend/src/store/masteryStore.ts — FULL Zustand store
+frontend/src/hooks/useMastery.ts — FULL hook
+# Phase 3 Verification Checklist:
+# ✓ Have a Socratic exchange → GET /mastery/{pid}/ledger shows concept appeared
+# ✓ Make same mistake 3+ times → next Socratic starts at level 2 (not 1)
+# ✓ Mastery Map sidebar shows concept cards with correct status colours
+# ✓ Manually add entry to evolution_db.json → ask about that topic → ETM injects
+# ✓ mastery_node never delays the chat response (check response time <2s)
+# ✓ All tests green — ESPECIALLY test_mastery_node.py
+git add . && git commit -m 'feat: Phase 3 — Mastery Tracking + ETM complete'
+git checkout main && git merge pme/phase-3
+Phase 4  —  Proof of Mastery + Guardian Full
+superpowers:using-git-worktrees   # creates pme/phase-4
+superpowers:writing-plans         # await approval
+superpowers:executing-plans       # sequential tasks in Phase 4
+Files to implement:
+graph/nodes/cert_node.py — FULL implementation (exact code in Section 4.13)
+graph/nodes/guardian_node.py — FULL implementation (exact code in Section 4.10)
+frontend/src/components/mastery/MasteryCertModal.tsx — full-screen modal, Export as PDF
+Update WorkspaceShell.tsx — pending cert check on session start (already scaffolded in Section 6.2)
+rag/fingerprint.py — FULL linguistic profile extraction (few_shot_examples, sarcasm, reactions)
+services/persona_service.py — gap-fill interview logic: detect gaps, generate questions
+PersonaBuilder.tsx — Step 5: gap-fill interview UI
+# Phase 4 Verification Checklist:
+# ✓ Manually set mastery conditions in DB → restart session → MasteryCertModal appears
+# ✓ MasteryCertModal shows in-character text (not generic congratulations)
+# ✓ Export as PDF → browser print dialog opens
+# ✓ Cert marked delivered=1 after modal closes
+# ✓ Guardian test: send flagged message → response is rewritten in-character
+# ✓ Guardian test: send clean message → response passes through unchanged
+# ✓ Enter a YouTube URL → linguistic profile extracted and stored
+# ✓ All tests green — ESPECIALLY test_cert_node.py and test_guardian_node.py
+git add . && git commit -m 'feat: Phase 4 — Proof of Mastery + Guardian complete'
+git checkout main && git merge pme/phase-4
+Phase 5  —  Sacred Space Full + Polish
+superpowers:using-git-worktrees   # creates pme/phase-5
+superpowers:writing-plans         # await approval
+superpowers:executing-plans       # sequential polish tasks
+Files to implement / update:
+OpeningRitual.tsx — FULL animation: black → glow → mentor name types → Enter button
+WorkspaceShell.tsx — Focus Mode: add body.focus-mode class in Deep Dive mode
+Friend Mode toggle: persona_node prompt changes + body.friend-mode class on body
+StatusBar.tsx — auto-save indicator ('Saved N seconds ago')
+useSession.ts — setInterval(60000, POST /session/save) for auto-save
+Lessons Learned modal: on workspace close, offer summary generation
+Error handling: Ollama offline amber banner above InputBar
+README.md: Docker quickstart, manual setup, mastery tracking explanation
+scripts/setup.sh and scripts/start-docker.sh: final versions
+# Phase 5 Final Verification (Full End-to-End):
+# ✓ Run scripts/setup.sh on a clean Ubuntu 22.04 → completes without errors
+# ✓ docker-compose up --build → all services start
+# ✓ Opening ritual: 1.5s animation plays (mentor name types character by character)
+# ✓ Complete full onboarding (all 5 steps including gap-fill)
+# ✓ Upload vault file → ingests successfully
+# ✓ Enter YouTube URL → fingerprint extracted
+# ✓ Chat → Socratic badge changes level on deviation
+# ✓ Demonstrate mastery conditions → cert modal on next session
+# ✓ Switch to Friend Mode → UI accent changes amber→blue, tone softens
+# ✓ Exit → Lessons Learned modal appears
+# ✓ Reopen → ResumeModal with mastery status summary
+# ✓ Stop Ollama → amber banner appears, app does not crash
+# ✓ netstat/ss shows ZERO external TCP connections during inference
+# ✓ All tests green
+git add . && git commit -m 'feat: Phase 5 — PME complete'
+git checkout main && git merge pme/phase-5
+echo '✓ PME build complete. All 5 phases merged to main.'
+10.  Hard Constraints Summary
+CODEX: These rules are non-negotiable. If ANY constraint below is violated, the build is incorrect and must be fixed before proceeding.
+End of Document — PME SDD Final Version (Codex-Optimised)

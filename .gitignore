@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+backend/data/chroma/
+backend/data/uploads/
+backend/data/personas/
+backend/data/sessions/
+backend/data/mastery_certs/
+node_modules/
+frontend/node_modules/
+vscode-extension/node_modules/
+out/
+.dist/
+coverage/
+.pytest_cache/
