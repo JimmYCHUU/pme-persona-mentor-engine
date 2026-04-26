@@ -95,5 +95,22 @@ class OllamaService:
         except Exception:
             return False
 
+    async def embed(self, model: str, text: str) -> list[float]:
+        """Generate a vector embedding using Ollama embedding model."""
+
+        payload = {"model": model, "input": text}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{settings.OLLAMA_BASE_URL}/api/embed", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            if "embeddings" in data and data["embeddings"]:
+                return data["embeddings"][0]
+        payload = {"model": model, "prompt": text}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{settings.OLLAMA_BASE_URL}/api/embeddings", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("embedding", [])
+
 
 ollama_service = OllamaService()

@@ -8,6 +8,8 @@ from fastapi import APIRouter, BackgroundTasks, WebSocket, WebSocketDisconnect
 
 from graph.nodes.mastery_node import process_mastery_event
 from graph.orchestrator import pme_graph
+from services.ollama_service import ollama_service
+from core.config import settings
 from models.schemas import ChatRequest
 
 
@@ -64,12 +66,22 @@ async def send_message(req: ChatRequest, background_tasks: BackgroundTasks) -> d
 
 @router.websocket("/ws/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str) -> None:
-    """Minimal websocket endpoint placeholder for streaming."""
+    """Stream response token chunks over websocket for live chat updates."""
 
     await websocket.accept()
     try:
         while True:
-            _ = await websocket.receive_json()
+            data = await websocket.receive_json()
+            system = data.get("system", "You are a mentor.")
+            message = data.get("message", "")
+            history = data.get("history", [])
+            async for token in ollama_service.stream(
+                model=settings.OLLAMA_MODEL,
+                system=system,
+                message=message,
+                history=history,
+            ):
+                await websocket.send_json({"type": "token", "content": token, "session_id": session_id})
             await websocket.send_json({"type": "done", "session_id": session_id})
     except WebSocketDisconnect:
         return
