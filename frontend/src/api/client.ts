@@ -28,6 +28,10 @@ export const api = {
     const res = await client.post('/session/save', { snapshot })
     return res.data.data
   },
+  async saveLessons(payload: { session_id: string; persona_name: string; notes: string }) {
+    const res = await client.post('/session/lessons', payload)
+    return res.data.data
+  },
   async resumeSession(persona_id: string) {
     const res = await client.post('/session/resume', { persona_id })
     return res.data.data

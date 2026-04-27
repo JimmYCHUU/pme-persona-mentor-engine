@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useChatStore } from '../store/chatStore'
+import { usePersonaStore } from '../store/personaStore'
 import { useSessionStore } from '../store/sessionStore'
 
 export function useSession() {
   const { snapshot, setSnapshot, mode } = useSessionStore()
   const { sessionId, messages } = useChatStore()
+  const { activeId, personas } = usePersonaStore()
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [showLessonsModal, setShowLessonsModal] = useState(false)
+  const [lessonsPath, setLessonsPath] = useState<string | null>(null)
+  const [isGeneratingLessons, setIsGeneratingLessons] = useState(false)
 
   const saveSession = async () => {
     if (!sessionId) return
@@ -42,20 +47,58 @@ export function useSession() {
             mode,
             chat_history: messages,
           })
-          .then(() =>
-            fetch('http://localhost:8000/session/lessons', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ session_id: sessionId, notes: messages.map((m) => m.content).join('\n') }),
+          .then(async () => {
+            const personaName = personas.find((p) => p.persona_id === (activeId ?? snapshot?.persona_id))?.name ?? 'Mentor'
+            await api.saveLessons({
+              session_id: sessionId,
+              persona_name: personaName,
+              notes: messages.map((m) => m.content).join('\n'),
             })
-          )
+          })
       }
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [sessionId, messages, mode, snapshot])
+  }, [sessionId, messages, mode, snapshot, personas, activeId])
+
+  const requestCloseSession = () => {
+    setShowLessonsModal(true)
+  }
+
+  const closeLessonsModal = () => {
+    setShowLessonsModal(false)
+  }
+
+  const generateLessons = async () => {
+    if (!sessionId) return
+    setIsGeneratingLessons(true)
+    try {
+      await saveSession()
+      const personaName = personas.find((p) => p.persona_id === (activeId ?? snapshot?.persona_id))?.name ?? 'Mentor'
+      const result = await api.saveLessons({
+        session_id: sessionId,
+        persona_name: personaName,
+        notes: messages.map((m) => m.content).join('\n'),
+      })
+      setLessonsPath(result.path ?? null)
+    } finally {
+      setIsGeneratingLessons(false)
+    }
+  }
 
   const savedSecondsAgo = lastSavedAt ? Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000)) : null
 
-  return { snapshot, setSnapshot, saveSession, lastSavedAt, savedSecondsAgo }
+  return {
+    snapshot,
+    setSnapshot,
+    saveSession,
+    lastSavedAt,
+    savedSecondsAgo,
+    showLessonsModal,
+    requestCloseSession,
+    closeLessonsModal,
+    generateLessons,
+    lessonsPath,
+    isGeneratingLessons,
+  }
 }

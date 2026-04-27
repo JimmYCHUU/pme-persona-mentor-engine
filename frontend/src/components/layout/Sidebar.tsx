@@ -5,7 +5,7 @@ import { useMasteryStore } from '../../store/masteryStore'
 import { PersonaCard } from '../persona/PersonaCard'
 import { Button } from '../shared/Button'
 
-export function Sidebar({ onToggleMastery }: { onToggleMastery: () => void }) {
+export function Sidebar({ onToggleMastery, onExit }: { onToggleMastery: () => void; onExit: () => void }) {
   const { personas, activeId, setActive } = usePersona()
   const { mode, toggleMode } = useSessionStore()
   const { concepts } = useMasteryStore()
@@ -24,6 +24,8 @@ export function Sidebar({ onToggleMastery }: { onToggleMastery: () => void }) {
       </button>
       <div style={{ marginTop: 'auto' }}>
         <Button variant={mode === 'friend_mode' ? 'primary' : 'ghost'} onClick={toggleMode}>Friend Mode</Button>
+        <div style={{ height: 8 }} />
+        <Button variant='ghost' onClick={onExit}>Exit Session</Button>
       </div>
     </aside>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { useMastery } from '../../hooks/useMastery'
 import { useSessionStore } from '../../store/sessionStore'
@@ -14,6 +14,21 @@ export function WorkspaceShell() {
   const { mode, snapshot } = useSessionStore()
   const { pendingCerts, markDelivered } = useMastery()
 
+  useEffect(() => {
+    if (mode === 'deep_dive') {
+      document.body.classList.add('focus-mode')
+      document.body.classList.remove('friend-mode')
+    } else {
+      document.body.classList.remove('focus-mode')
+      document.body.classList.add('friend-mode')
+    }
+
+    return () => {
+      document.body.classList.remove('focus-mode')
+      document.body.classList.remove('friend-mode')
+    }
+  }, [mode])
+
   const handleRitualComplete = () =>
     setRitualState(pendingCerts.length > 0 ? 'cert' : snapshot ? 'resume' : 'workspace')
 
@@ -23,14 +38,6 @@ export function WorkspaceShell() {
   }
 
   const handleResumeClose = () => setRitualState('workspace')
-
-  if (mode === 'deep_dive') {
-    document.body.classList.add('focus-mode')
-    document.body.classList.remove('friend-mode')
-  } else {
-    document.body.classList.remove('focus-mode')
-    document.body.classList.add('friend-mode')
-  }
 
   return (
     <div className={`workspace-root ${mode === 'friend_mode' ? 'friend-mode' : ''}`}>

@@ -33,3 +33,22 @@ cp -n "$ROOT_DIR/backend/.env.example" "$ROOT_DIR/backend/.env" || true
 
 cd "$ROOT_DIR/frontend"
 npm install
+
+if command_exists ollama; then
+  OLLAMA_PID=""
+  if ! curl -sSf http://localhost:11434/api/tags >/dev/null 2>&1; then
+    ollama serve >/tmp/pme_ollama_setup.log 2>&1 &
+    OLLAMA_PID="$!"
+    sleep 3
+  fi
+
+  echo "Pulling required Ollama models (llama3.2:3b, nomic-embed-text)..."
+  ollama pull llama3.2:3b
+  ollama pull nomic-embed-text
+
+  if [[ -n "$OLLAMA_PID" ]]; then
+    kill "$OLLAMA_PID" >/dev/null 2>&1 || true
+  fi
+else
+  echo "Skipping model pull because ollama is not installed"
+fi
