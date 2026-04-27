@@ -2,6 +2,7 @@
 
 from typing import List
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -28,10 +29,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:5173"]
     LOG_LEVEL: str = "INFO"
 
-    class Config:
-        """Pydantic settings config."""
-
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
 
 settings = Settings()
