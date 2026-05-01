@@ -1,0 +1,36 @@
+# Project
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+data/chroma/
+data/sessions/
+data/uploads/
+data/personas/
+data/mastery_certs/
+
+# Python
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
