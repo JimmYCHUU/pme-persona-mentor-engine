@@ -27,8 +27,8 @@ $PYTHON -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install pytest pytest-asyncio pytest-cov httpx
-echo "Installing Playwright browsers..."
-playwright install chromium --with-deps 2>/dev/null || true
+echo "Installing Playwright browsers (optional, skipping if fails)..."
+playwright install chromium 2>/dev/null || echo "  Skipped Playwright — run 'sudo playwright install --with-deps chromium' later if needed"
 cp .env.example .env
 cd ..
 
