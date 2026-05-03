@@ -54,7 +54,10 @@ async def process_mastery_event(event: dict) -> None:
         # Check if certification is now eligible
         if await MasteryService.should_certify(persona_id, concept_key):
             logger.info(f'mastery_node: {concept_key} eligible for certification!')
-            # cert_node will handle actual cert creation in Phase 4
+            from graph.nodes.cert_node import generate_certificate
+            cert = await generate_certificate(persona_id, concept_key)
+            if cert:
+                logger.info(f'mastery_node: certificate generated: {cert["cert_id"]}')
 
     except Exception as e:
         logger.error(f'mastery_node: failed to update {concept_key}: {e}')
