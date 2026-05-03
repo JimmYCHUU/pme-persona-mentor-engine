@@ -7,7 +7,23 @@ echo "=== PME Setup ==="
 # Backend
 echo "Setting up backend..."
 cd backend
-python3.11 -m venv .venv
+
+# Auto-detect Python
+PYTHON=""
+for cmd in python3.12 python3.11 python3 python; do
+  if command -v "$cmd" &>/dev/null; then
+    PYTHON="$cmd"
+    break
+  fi
+done
+
+if [ -z "$PYTHON" ]; then
+  echo "❌ No Python 3 found. Please install Python 3.11+."
+  exit 1
+fi
+
+echo "Using $PYTHON ($($PYTHON --version))"
+$PYTHON -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install pytest pytest-asyncio pytest-cov httpx
