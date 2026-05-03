@@ -1,0 +1,242 @@
+/* PME — Cinematic Editorial Design System */
+/* Warm gold palette, serif headings, glassmorphism */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Backgrounds ── */
+  --bg-base: #0A0A0F;
+  --bg-surface: rgba(18, 18, 24, 0.85);
+  --bg-raised: rgba(28, 28, 38, 0.75);
+  --bg-overlay: rgba(42, 42, 56, 0.65);
+  --bg-glass: rgba(255, 255, 255, 0.03);
+
+  /* ── Text ── */
+  --text-primary: #F0EDE6;
+  --text-secondary: #A8A4A0;
+  --text-muted: #636366;
+  --text-heading: #E8E0D4;
+
+  /* ── Accent — warm gold (Deep Dive) ── */
+  --accent: #C9A84C;
+  --accent-warm: #D4AF5A;
+  --accent-dim: #8A7634;
+  --accent-glow: rgba(201, 168, 76, 0.12);
+  --accent-glow-strong: rgba(201, 168, 76, 0.25);
+
+  /* ── Friend Mode accent — warm blue ── */
+  --accent-friend: #5B8EC9;
+
+  /* ── Semantic ── */
+  --success: #6ECB8A;
+  --danger: #E06C6C;
+  --info: #5B8EC9;
+  --warning: #D4AF5A;
+
+  /* ── Socratic Badge Colours ── */
+  --socratic-0: #636366;
+  --socratic-1: #636366;
+  --socratic-2: #5B8EC9;
+  --socratic-3: #C9A84C;
+  --socratic-4: #E06C6C;
+
+  /* ── Mastery Status Colours ── */
+  --mastery-encountered: #636366;
+  --mastery-attempted: #5B8EC9;
+  --mastery-struggling: #D4AF5A;
+  --mastery-mastered: #6ECB8A;
+
+  /* ── Typography ── */
+  --font-heading: 'Playfair Display', serif;
+  --font-sans: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* ── Layout ── */
+  --sidebar-w: 280px;
+  --statusbar-h: 36px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ── Glassmorphism ── */
+  --glass-blur: 16px;
+  --glass-border: rgba(201, 168, 76, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Friend Mode override ── */
+body.friend-mode {
+  --accent: var(--accent-friend);
+  --accent-warm: #6B9ED9;
+  --accent-dim: #3A6A9A;
+  --accent-glow: rgba(91, 142, 201, 0.12);
+  --accent-glow-strong: rgba(91, 142, 201, 0.25);
+  --glass-border: rgba(91, 142, 201, 0.08);
+}
+
+/* ── Base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+code, pre {
+  font-family: var(--font-mono);
+}
+
+/* ── Focus Mode ── */
+body.focus-mode .sidebar,
+body.focus-mode .status-bar {
+  opacity: 0.15;
+  transition: opacity var(--transition-normal);
+}
+body.focus-mode .sidebar:hover,
+body.focus-mode .status-bar:hover {
+  opacity: 1;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ── Glass Card (reusable utility) ── */
+.glass-card {
+  background: var(--bg-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── Button base ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-warm));
+  color: var(--bg-base);
+}
+.btn-primary:hover {
+  box-shadow: 0 0 24px var(--accent-glow-strong);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-dim);
+  background: var(--accent-glow);
+}
+
+/* ── Input base ── */
+.input {
+  background: var(--bg-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+.input:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes typewriter-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-slow) both;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--transition-slow) both;
+}
