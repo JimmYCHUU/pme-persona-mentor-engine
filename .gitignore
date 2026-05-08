@@ -34,3 +34,17 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Environment — NEVER commit these
+.env
+.env.local
+.env.production
+*.env
+
+# API keys
+secrets.json
+*.pem
+*.key
+
+# This prompt file
+ANTIGRAVITY_PROMPT.md

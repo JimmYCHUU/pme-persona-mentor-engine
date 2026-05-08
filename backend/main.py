@@ -38,7 +38,18 @@ app.include_router(mastery.router, prefix='/mastery', tags=['mastery'])
 
 @app.get('/health')
 async def health_check():
-    """Returns Ollama online status. Used by StatusBar."""
-    from services.ollama_service import ollama_service
-    online = await ollama_service.check_health()
-    return {'success': True, 'data': {'ollama_online': online}, 'error': None}
+    """Returns LLM provider status. Used by StatusBar."""
+    from services.llm_service import llm_service
+    from core.config import settings
+    status = await llm_service.check_health()
+    return {
+        'success': True,
+        'data': {
+            'openrouter_online': status['openrouter'],
+            'ollama_online': status['ollama'],
+            'primary_provider': status['primary'],
+            'persona_model': settings.PERSONA_MODEL,
+            'reasoning_model': settings.REASONING_MODEL,
+        },
+        'error': None,
+    }

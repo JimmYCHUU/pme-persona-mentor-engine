@@ -2,14 +2,13 @@
 
 from graph.state import PMEState
 from services.persona_service import PersonaService
-from services.ollama_service import ollama_service
-from core.config import settings
+from services.llm_service import llm_service
 
 
 async def persona_node(state: PMEState) -> PMEState:
     """
     Loads the persona profile, builds the style-transfer system prompt,
-    calls OllamaService, and stores the styled response.
+    calls LLMService (DeepSeek V3 via OpenRouter), and stores the styled response.
     The persona changes HOW the answer is expressed, not WHAT it says.
     """
     profile = await PersonaService.load(state['persona_id'])
@@ -36,11 +35,11 @@ async def persona_node(state: PMEState) -> PMEState:
         history = [{'role': m['role'], 'content': m['content']}
                    for m in history[-20:]]  # last 20 turns max
 
-    response = await ollama_service.chat(
-        model=settings.OLLAMA_MODEL,
-        system=system_prompt,
+    response = await llm_service.chat(
         message=state['user_message'],
+        system=system_prompt,
         history=history,
+        use_reasoning=False,  # persona voice = DeepSeek V3
     )
 
     state['raw_llm_response'] = response

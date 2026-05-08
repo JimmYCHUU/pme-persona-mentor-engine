@@ -3,9 +3,8 @@
 from fastapi import APIRouter
 from models.schemas import SessionSaveRequest
 from services.session_service import SessionService
-from services.ollama_service import ollama_service
+from services.llm_service import llm_service
 from services.persona_service import PersonaService
-from core.config import settings
 from core.utils import generate_id
 
 router = APIRouter()
@@ -39,10 +38,10 @@ async def resume_session(body: dict):
     )
 
     try:
-        greeting = await ollama_service.chat(
-            model=settings.OLLAMA_MODEL,
-            system=f'You are {mentor_name}.',
+        greeting = await llm_service.chat(
             message=greeting_prompt,
+            system=f'You are {mentor_name}.',
+            use_reasoning=False,
         )
     except Exception:
         greeting = f"Welcome back. Let's continue where we left off."

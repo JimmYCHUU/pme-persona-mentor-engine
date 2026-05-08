@@ -114,8 +114,7 @@ async def _extract_concept_key(message: str) -> str | None:
     Extracts a simple concept key from the user message via a short LLM call.
     Returns a snake_case key like 'tcp_handshake' or None if no concept found.
     """
-    from services.ollama_service import ollama_service
-    from core.config import settings
+    from services.llm_service import llm_service
 
     prompt = (
         f"Extract the main technical concept from this message as a single "
@@ -124,10 +123,10 @@ async def _extract_concept_key(message: str) -> str | None:
     )
 
     try:
-        result = await ollama_service.chat(
-            model=settings.OLLAMA_MODEL,
+        result = await llm_service.chat(
+            message=prompt,
             system='You extract concept keys. Respond with only the key, nothing else.',
-            message=prompt
+            use_reasoning=True,  # DeepSeek R1 for accurate reasoning
         )
         key = result.strip().lower().replace(' ', '_')
         return None if key == 'none' else key[:50]

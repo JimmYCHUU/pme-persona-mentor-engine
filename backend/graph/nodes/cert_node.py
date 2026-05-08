@@ -10,7 +10,7 @@ from core.config import settings
 from core.database import AsyncSessionLocal
 from core.utils import generate_id, now_iso
 from models.mastery import MasteryCertificate, MasteryLedger
-from services.ollama_service import ollama_service
+from services.llm_service import llm_service
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
@@ -129,10 +129,10 @@ async def _generate_mentor_statement(persona_id: str, concept_key: str,
     )
 
     try:
-        statement = await ollama_service.chat(
-            model=settings.OLLAMA_MODEL,
-            system=f'You are {mentor_name}. Write a brief mastery certification statement.',
+        statement = await llm_service.chat(
             message=prompt,
+            system=f'Write a brief mastery certification statement as {mentor_name}.',
+            use_reasoning=False,
         )
         return statement.strip()
     except Exception as e:
