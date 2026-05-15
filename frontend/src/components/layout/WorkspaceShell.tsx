@@ -1,66 +1,100 @@
 /**
- * WorkspaceShell — root component managing the opening ritual state machine.
- * OUTERMOST component per SDD Section 6.2.
+ * WorkspaceShell — root component: opening ritual → NavRail + routed pages.
  */
 
-import { useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import { OpeningRitual } from '../session/OpeningRitual'
 import { MasteryCertModal } from '../mastery/MasteryCertModal'
 import { ResumeModal } from '../session/ResumeModal'
-import { Shell } from './Shell'
+import { NavRail } from './NavRail'
+import { StatusBar } from './StatusBar'
+import { SessionPage } from '../../pages/SessionPage'
+import { DashboardPage } from '../../pages/DashboardPage'
+import { MentorsPage } from '../../pages/MentorsPage'
+import { SettingsPage } from '../../pages/SettingsPage'
 import { useSessionStore } from '../../store/sessionStore'
 import { useMasteryStore } from '../../store/masteryStore'
 import { useMastery } from '../../hooks/useMastery'
-
-type RitualState = 'opening' | 'cert' | 'resume' | 'workspace'
+import { checkHealth } from '../../api/client'
 
 export function WorkspaceShell() {
-    const [ritualState, setRitualState] = useState<RitualState>('opening')
-    const { mode, snapshot } = useSessionStore()
+    const [ritualDone, setRitualDone] = useState(false)
+    const [activePath, setActivePath] = useState('/')
+    const { mode, snapshot, setProviderStatus } = useSessionStore()
     const { pendingCerts } = useMasteryStore()
     const { markDelivered } = useMastery()
+    const [showResume, setShowResume] = useState(true)
 
-    const handleRitualComplete = () =>
-        setRitualState(
-            pendingCerts.length > 0 ? 'cert' :
-                snapshot ? 'resume' :
-                    'workspace'
-        )
+    // Poll provider status
+    useEffect(() => {
+        const poll = async () => {
+            try {
+                const res = await checkHealth()
+                if (res.success && res.data) {
+                    setProviderStatus({
+                        openrouter: res.data.openrouter_online,
+                        ollama: res.data.ollama_online,
+                        primary: res.data.primary_provider || 'none',
+                    })
+                }
+            } catch { /* silent */ }
+        }
+        poll()
+        const interval = setInterval(poll, 15000)
+        return () => clearInterval(interval)
+    }, [setProviderStatus])
 
-    const handleCertClose = async (certId: string) => {
-        await markDelivered(certId)
-        setRitualState(snapshot ? 'resume' : 'workspace')
+    if (!ritualDone) {
+        return <OpeningRitual onComplete={() => setRitualDone(true)} />
     }
 
-    const handleResumeClose = () => setRitualState('workspace')
+    // Pending cert modal
+    if (pendingCerts.length > 0) {
+        return (
+            <MasteryCertModal
+                cert={pendingCerts[0]}
+                onClose={() => markDelivered(pendingCerts[0].cert_id)}
+            />
+        )
+    }
+
+    const renderPage = () => {
+        switch (activePath) {
+            case '/dashboard': return <DashboardPage />
+            case '/mentors': return <MentorsPage />
+            case '/settings': return <SettingsPage />
+            default: return <SessionPage />
+        }
+    }
 
     return (
-        <div className={`workspace-root ${mode === 'friend_mode' ? 'friend-mode' : ''}`}
-            style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
-            <AnimatePresence mode="wait">
-                {ritualState === 'opening' && (
-                    <OpeningRitual key="ritual" onComplete={handleRitualComplete} />
-                )}
-                {ritualState === 'cert' && pendingCerts[0] && (
-                    <MasteryCertModal
-                        key="cert"
-                        cert={pendingCerts[0]}
-                        onClose={() => handleCertClose(pendingCerts[0].cert_id)}
-                    />
-                )}
-                {ritualState === 'resume' && snapshot && (
-                    <ResumeModal
-                        key="resume"
-                        snapshot={snapshot}
-                        onContinue={handleResumeClose}
-                        onStartFresh={handleResumeClose}
-                    />
-                )}
-                {ritualState === 'workspace' && (
-                    <Shell key="shell" />
-                )}
-            </AnimatePresence>
+        <div
+            className={mode === 'friend_mode' ? 'friend-mode' : ''}
+            style={{
+                display: 'flex', flexDirection: 'column',
+                height: '100vh', background: 'var(--bg-base)',
+                overflow: 'hidden',
+            }}
+        >
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                <NavRail activePath={activePath} onNavigate={setActivePath} />
+                <main style={{
+                    flex: 1, overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column',
+                }}>
+                    {renderPage()}
+                </main>
+            </div>
+            <StatusBar />
+
+            {/* Resume modal */}
+            {snapshot && showResume && activePath === '/' && (
+                <ResumeModal
+                    snapshot={snapshot}
+                    onContinue={() => setShowResume(false)}
+                    onStartFresh={() => setShowResume(false)}
+                />
+            )}
         </div>
     )
 }

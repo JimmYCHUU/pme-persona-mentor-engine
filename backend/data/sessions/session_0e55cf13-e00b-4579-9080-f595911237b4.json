@@ -1,7 +1,7 @@
 {
   "session_id": "0e55cf13-e00b-4579-9080-f595911237b4",
   "persona_id": "ba389ae7-5fd6-42ce-ab1f-348515bb4329",
-  "mode": "deep_dive",
+  "mode": "friend_mode",
   "chat_history": [
     {
       "role": "user",
@@ -16,5 +16,5 @@
       "vault_citation": null
     }
   ],
-  "updated_at": "2026-05-08T14:18:17.230402"
+  "updated_at": "2026-05-08T14:22:17.235612"
 }

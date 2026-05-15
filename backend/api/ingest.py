@@ -89,3 +89,159 @@ async def _ingest_url_bg(persona_id: str, url: str) -> None:
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f'URL ingest failed: {e}')
+
+
+@router.get('/status/{persona_id}', response_model=dict)
+async def ingest_status(persona_id: str):
+    """
+    Returns per-source ingestion status for the progress screen.
+    Checks what data exists for this persona in the vector store.
+    """
+    import os
+    upload_dir = os.path.join(settings.UPLOAD_DIR, persona_id)
+    files_uploaded = []
+    if os.path.isdir(upload_dir):
+        files_uploaded = os.listdir(upload_dir)
+
+    persona_dir = os.path.join(settings.PERSONA_DIR, persona_id)
+    has_evolution_db = os.path.exists(os.path.join(persona_dir, 'evolution_db.json')) if os.path.isdir(persona_dir) else False
+
+    return {
+        'success': True,
+        'data': {
+            'files_uploaded': files_uploaded,
+            'file_count': len(files_uploaded),
+            'has_evolution_db': has_evolution_db,
+            'status': 'done' if files_uploaded or has_evolution_db else 'pending',
+        },
+        'error': None,
+    }
+
+
+@router.post('/scan-folder', response_model=dict)
+async def scan_folder(request: dict):
+    """
+    Scans a folder path for mentor materials.
+    Uses the reasoning model to infer which person the materials belong to.
+    """
+    from pathlib import Path
+    from services.llm_service import llm_service
+
+    folder_path = Path(request.get('folder_path', ''))
+
+    if not folder_path.exists() or not folder_path.is_dir():
+        return {'success': False, 'data': None, 'error': 'Folder not found'}
+
+    # Collect all supported files
+    supported = {'.pdf', '.mp4', '.mp3', '.docx', '.txt', '.m4a'}
+    files = [f for f in folder_path.rglob('*') if f.suffix.lower() in supported]
+
+    if not files:
+        return {
+            'success': True,
+            'data': {
+                'status': 'empty',
+                'files': [],
+                'detected_person': None,
+                'confidence': 0.0,
+            },
+            'error': None,
+        }
+
+    # Check for MENTOR.txt config file first
+    mentor_config = folder_path / 'MENTOR.txt'
+    if mentor_config.exists():
+        name = mentor_config.read_text().strip().split('\n')[0]
+        return {
+            'success': True,
+            'data': {
+                'status': 'config_found',
+                'files': [str(f) for f in files],
+                'detected_person': name,
+                'confidence': 1.0,
+            },
+            'error': None,
+        }
+
+    # Use reasoning model to infer the person from filenames + content samples
+    file_samples = []
+    for f in files[:5]:
+        if f.suffix == '.txt':
+            try:
+                sample = f.read_text(errors='ignore')[:500]
+                file_samples.append(f"File: {f.name}\nSample: {sample[:200]}")
+            except Exception:
+                file_samples.append(f"File: {f.name}")
+        else:
+            file_samples.append(f"File: {f.name}")
+
+    prompt = (
+        "Based on these filenames and content samples, answer two questions:\n"
+        "1. Who is the real-world person these materials are primarily about?\n"
+        "2. Do the materials seem to be about multiple DIFFERENT people?\n"
+        "Reply ONLY in this format:\n"
+        "NAME: [name or 'unknown']\n"
+        "CONFIDENCE: [0.0-1.0]\n"
+        "MULTIPLE_PEOPLE: [yes or no]\n\n"
+        f"Files:\n" + "\n".join(file_samples)
+    )
+
+    inference = await llm_service.chat(
+        message=prompt,
+        system="You identify people from document filenames and content samples. Be concise.",
+        use_reasoning=True,
+    )
+
+    # Parse the response
+    detected_name = None
+    confidence = 0.0
+    multiple_people = False
+    for line in inference.split('\n'):
+        if line.startswith('NAME:'):
+            detected_name = line.split(':', 1)[1].strip()
+            if detected_name.lower() == 'unknown':
+                detected_name = None
+        elif line.startswith('CONFIDENCE:'):
+            try:
+                confidence = float(line.split(':', 1)[1].strip())
+            except Exception:
+                confidence = 0.5
+        elif line.startswith('MULTIPLE_PEOPLE:'):
+            multiple_people = 'yes' in line.lower()
+
+    if multiple_people:
+        status = 'multiple_people'
+    elif confidence >= 0.6 and detected_name:
+        status = 'detected'
+    else:
+        status = 'ambiguous'
+
+    return {
+        'success': True,
+        'data': {
+            'status': status,
+            'files': [str(f) for f in files],
+            'file_count': len(files),
+            'detected_person': detected_name,
+            'confidence': confidence,
+        },
+        'error': None,
+    }
+
+
+@router.post('/confirm-folder', response_model=dict)
+async def confirm_folder(request: dict, background_tasks: BackgroundTasks = BackgroundTasks()):
+    """
+    After user confirms the scan result, begins ingestion of all files.
+    """
+    file_paths = request.get('file_paths', [])
+    persona_id = request.get('persona_id', '')
+
+    for file_path in file_paths:
+        background_tasks.add_task(_ingest_vault_bg, persona_id, file_path)
+
+    return {
+        'success': True,
+        'data': {'queued': len(file_paths)},
+        'error': None,
+    }

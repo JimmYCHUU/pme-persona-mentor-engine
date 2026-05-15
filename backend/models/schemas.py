@@ -94,3 +94,26 @@ class MasteryLedgerResponse(BaseModel):
 class CertResponse(BaseModel):
     """Response for cert endpoints."""
     certs: List[MasteryCertResponse] = []
+
+
+class PersonaCreatePending(BaseModel):
+    """Request body for POST /persona/create-pending."""
+    name: str
+    domain: str = ''
+
+
+class PersonaActivate(BaseModel):
+    """Request body for POST /persona/{id}/activate."""
+    sliders: Optional[dict] = None
+    gap_fill_answers: Optional[dict] = None
+
+
+class FolderScanRequest(BaseModel):
+    """Request body for POST /ingest/scan-folder."""
+    folder_path: str
+
+
+class FolderConfirmRequest(BaseModel):
+    """Request body for POST /ingest/confirm-folder."""
+    persona_id: str
+    file_paths: List[str]
