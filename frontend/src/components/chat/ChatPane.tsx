@@ -1,5 +1,5 @@
 /**
- * ChatPane — the main chat area with messages and input.
+ * ChatPane — premium chat interface with gradient background and refined spacing.
  */
 
 import { useRef, useEffect } from 'react'
@@ -25,34 +25,51 @@ export function ChatPane() {
             overflow: 'hidden',
             background: 'var(--bg-base)',
         }}>
-            {/* Messages */}
+            {/* Messages area */}
             <div style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '24px 32px',
+                padding: '32px 40px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px',
+                gap: '20px',
             }}>
                 {messages.length === 0 && (
-                    <div className="animate-fade-in" style={{
+                    <div className="fade-up" style={{
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flex: 1,
                         gap: '16px',
-                        color: 'var(--text-muted)',
                     }}>
+                        {/* Decorative orb */}
+                        <div style={{
+                            width: '80px', height: '80px',
+                            borderRadius: '50%',
+                            background: 'radial-gradient(circle at 40% 40%, var(--orb-core), var(--orb-mid) 60%, transparent 100%)',
+                            filter: 'blur(12px)',
+                            opacity: 0.6,
+                            marginBottom: '8px',
+                        }} />
                         <h2 style={{
-                            fontFamily: 'var(--font-heading)',
-                            color: 'var(--accent)',
-                            fontSize: '1.5rem',
+                            fontFamily: 'var(--font-display)',
+                            color: 'var(--accent-bright)',
+                            fontSize: '1.8rem',
+                            fontWeight: 300,
+                            letterSpacing: '-0.01em',
                         }}>
                             {activePersona?.name || 'Mentor'}
                         </h2>
-                        <p style={{ fontSize: '0.9rem', maxWidth: '400px', textAlign: 'center', lineHeight: 1.6 }}>
-                            Begin your session. Your mentor is ready.
+                        <p style={{
+                            fontSize: '0.85rem',
+                            maxWidth: '380px',
+                            textAlign: 'center',
+                            lineHeight: 1.7,
+                            color: 'var(--text-muted)',
+                            fontWeight: 300,
+                        }}>
+                            Begin your session. Your mentor is present and listening.
                         </p>
                     </div>
                 )}
@@ -62,18 +79,28 @@ export function ChatPane() {
                 {isLoading && (
                     <div style={{
                         display: 'flex',
-                        gap: '4px',
-                        padding: '12px 16px',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '16px 20px',
                     }}>
                         {[0, 1, 2].map((i) => (
                             <span key={i} style={{
-                                width: '6px',
-                                height: '6px',
+                                width: '5px',
+                                height: '5px',
                                 borderRadius: '50%',
-                                background: 'var(--accent-dim)',
-                                animation: `typewriter-glow 1.2s ease-in-out ${i * 0.2}s infinite`,
+                                background: 'var(--accent)',
+                                opacity: 0.6,
+                                animation: `pulseDot 1.4s ease-in-out ${i * 0.2}s infinite`,
                             }} />
                         ))}
+                        <span style={{
+                            fontSize: '0.7rem',
+                            color: 'var(--text-muted)',
+                            fontFamily: 'var(--font-mono)',
+                            marginLeft: '6px',
+                        }}>
+                            thinking…
+                        </span>
                     </div>
                 )}
                 <div ref={messagesEndRef} />

@@ -5,6 +5,9 @@ from graph.orchestrator import pme_graph
 from graph.nodes.mastery_node import process_mastery_event
 from models.schemas import ChatRequest
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -41,7 +44,26 @@ async def send_message(req: ChatRequest,
     try:
         result = await pme_graph.ainvoke(initial_state)
     except Exception as e:
+        logger.error(f'Graph execution failed: {e}', exc_info=True)
         return {'success': False, 'data': None, 'error': str(e)}
+
+    # Debug: log key state fields
+    final = result.get('final_response') or ''
+    styled = result.get('styled_response') or ''
+    raw = result.get('raw_llm_response') or ''
+
+    if not final:
+        logger.warning(
+            f'Empty final_response! '
+            f'styled_response="{styled[:100]}", '
+            f'raw_llm_response="{raw[:100]}", '
+            f'guardian_flagged={result.get("guardian_flagged")}'
+        )
+        # Fallback: use styled_response or raw_llm_response
+        final = styled or raw or (
+            'The AI provider is currently rate-limited (free tier). '
+            'Please wait 30-60 seconds and try again.'
+        )
 
     # Schedule mastery update as BackgroundTask (non-blocking)
     if result.get('mastery_event'):
@@ -52,11 +74,11 @@ async def send_message(req: ChatRequest,
     return {
         'success': True,
         'data': {
-            'response': result['final_response'],
-            'socratic_level': result['socratic_level'],
+            'response': final,
+            'socratic_level': result.get('socratic_level', 0),
             'vault_citation': result.get('vault_citation'),
-            'guardian_flagged': result['guardian_flagged'],
-            'session_id': result['session_id'],
+            'guardian_flagged': result.get('guardian_flagged', False),
+            'session_id': result.get('session_id', ''),
         },
         'error': None,
     }

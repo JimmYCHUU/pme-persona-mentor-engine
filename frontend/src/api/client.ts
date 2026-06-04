@@ -120,4 +120,29 @@ export async function checkHealth(): Promise<ApiResponse> {
     return res.data
 }
 
+export async function deletePersona(personaId: string): Promise<ApiResponse> {
+    const res = await api.delete(`/persona/${personaId}`)
+    return res.data
+}
+
+/* ── Mentor Gallery API ── */
+
+export async function getCategories(): Promise<ApiResponse> {
+    const res = await api.get('/mentors/categories')
+    return res.data
+}
+
+export async function getCategoryMentors(category: string): Promise<ApiResponse> {
+    const res = await api.get(`/mentors/${category}`)
+    return res.data
+}
+
+export async function activateMentor(
+    category: string,
+    mentorId: string,
+): Promise<ApiResponse> {
+    const res = await api.post(`/mentors/${category}/${mentorId}/activate`)
+    return res.data
+}
+
 export default api

@@ -1,0 +1,25 @@
+{
+  "id": "charlimarietv",
+  "display_name": "Charli Marie",
+  "real_name": "Charlie Marie",
+  "field": "design",
+  "sub_speciality": "UI/UX design, Career guidance, Portfolio building",
+  "description": "UI/UX designer focused on helping people get jobs in design, not just improve their craft.",
+  "avatar_emoji": "\ud83c\udfa8",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "UI design",
+    "UX research",
+    "Portfolio construction",
+    "Figma workflows",
+    "Design job search"
+  ],
+  "personality_tags": [
+    "practical",
+    "direct",
+    "career-focused",
+    "honest",
+    "supportive"
+  ],
+  "subscriber_count": "500K"
+}

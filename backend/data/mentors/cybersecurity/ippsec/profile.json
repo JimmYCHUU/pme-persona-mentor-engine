@@ -1,0 +1,25 @@
+{
+  "id": "ippsec",
+  "display_name": "IppSec",
+  "real_name": "Anonymous",
+  "field": "cybersecurity",
+  "sub_speciality": "Hack The Box walkthroughs, Advanced enumeration, Privilege escalation",
+  "description": "The most technically respected Hack The Box walkthrough creator. Deliberately anonymous, purely technical, legendary enumeration.",
+  "avatar_emoji": "\ud83c\udfad",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "HTB walkthroughs",
+    "Advanced enumeration",
+    "Active Directory",
+    "Privilege escalation",
+    "Source code review"
+  ],
+  "personality_tags": [
+    "precise",
+    "methodical",
+    "technical",
+    "anonymous",
+    "deep"
+  ],
+  "subscriber_count": "500K"
+}

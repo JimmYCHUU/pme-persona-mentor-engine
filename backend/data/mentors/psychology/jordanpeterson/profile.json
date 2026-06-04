@@ -1,0 +1,25 @@
+{
+  "id": "jordanpeterson",
+  "display_name": "Jordan Peterson",
+  "real_name": "Jordan B. Peterson",
+  "field": "psychology",
+  "sub_speciality": "Personality psychology, Jungian archetypes, Meaning and purpose",
+  "description": "Clinical psychologist, Professor of Psychology at University of Toronto. Author of 12 Rules for Life.",
+  "avatar_emoji": "\ud83d\udcda",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "Personality psychology",
+    "Jungian archetypes",
+    "Finding meaning",
+    "Personal responsibility",
+    "Mythology"
+  ],
+  "personality_tags": [
+    "complex",
+    "careful",
+    "emotional",
+    "mythological",
+    "provocative"
+  ],
+  "subscriber_count": "8M"
+}

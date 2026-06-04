@@ -1,50 +1,111 @@
-"""
-ETM node (Ethical Time Machine) — full implementation.
-Checks evolution_db.json for concepts that have evolved.
-Injects evolution context before socratic_node.
-"""
+"""ETM node — Experience-Triggered Memory.
 
+Matches workspace events (terminal errors, file saves, etc.) to teaching
+concepts. When a match is found, provides contextual information to help
+the Socratic and Persona nodes tailor their response.
+
+Uses REASONING_MODEL to extract concepts from workspace events.
+"""
 import json
-import os
+import logging
 from graph.state import PMEState
-from core.config import settings
+from services.llm_service import llm_service
+
+logger = logging.getLogger(__name__)
+
+ETM_SYSTEM_PROMPT = """You are an Experience-Triggered Memory (ETM) engine. Analyze the workspace event (error message, code snippet, etc.) and identify the core programming/technical concept the student is encountering.
+
+Return ONLY a valid JSON object with these keys:
+- "concept": a short snake_case concept key (e.g., "null_safety", "async_await", "recursion_base_case")
+- "context": a 1-2 sentence explanation of what the event reveals about the student's current challenge
+- "matched": boolean, true if a clear teaching concept was identified
+
+Example response:
+{"concept": "null_safety", "context": "The error shows accessing a property on undefined, indicating the data hasn't loaded when the component renders.", "matched": true}"""
 
 
-async def etm_node(state: PMEState) -> PMEState:
+async def etm_node(state: PMEState) -> dict:
+    """Experience-Triggered Memory — matches workspace events to concepts.
+
+    If no workspace event, passes through without LLM call.
+    If event present, uses REASONING_MODEL to extract concept.
     """
-    Checks evolution_db.json for concepts that have evolved.
-    If the user's message mentions an evolved concept, injects
-    evolution context so the persona_node can reference it.
-    Runs BEFORE socratic_node. Sets etm_context and etm_matched.
-    """
-    state['etm_context'] = None
-    state['etm_matched'] = False
+    # No workspace event → pass-through
+    if not state.get("workspace_event"):
+        return {
+            "etm_context": None,
+            "etm_matched": False,
+        }
 
-    db_path = os.path.join(settings.PERSONA_DIR,
-                           state['persona_id'], 'evolution_db.json')
+    event = state["workspace_event"]
 
-    if not os.path.exists(db_path):
-        return state
+    # Build event description
+    event_type = event.get("type", "unknown")
+    content = event.get("content", "")
+    file_name = event.get("file", "unknown")
+    language = event.get("language", "unknown")
+
+    analysis_prompt = f"""Workspace event:
+Type: {event_type}
+File: {file_name}
+Language: {language}
+Content:
+{content}
+
+Student's message about this: {state['user_message']}
+
+Identify the core concept and provide context."""
 
     try:
-        with open(db_path) as f:
-            evolution_db: list = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return state
+        response = await llm_service.chat(
+            message=analysis_prompt,
+            system=ETM_SYSTEM_PROMPT,
+            use_reasoning=True,
+        )
 
-    user_msg_lower = state['user_message'].lower()
+        parsed = _parse_etm_response(response)
+        if parsed["matched"]:
+            # Build a contextual string combining concept and explanation
+            context = f"[{parsed['concept']}] {parsed['context']}"
+            return {
+                "etm_context": context,
+                "etm_matched": True,
+            }
+        else:
+            return {
+                "etm_context": None,
+                "etm_matched": False,
+            }
 
-    for entry in evolution_db:
-        # Simple keyword match on concept_key and related terms
-        keywords = [entry['concept_key']] + entry.get('keywords', [])
-        if any(kw.lower() in user_msg_lower for kw in keywords):
-            state['etm_context'] = (
-                f"EVOLUTION NOTE for persona: Regarding '{entry['concept_key']}': "
-                f"Old advice (pre-{entry['evolution_year']}): {entry['old_advice']}. "
-                f"Current evolved stance: {entry['new_advice']}. "
-                f"Frame this as your own growth - do not mention an AI filter."
-            )
-            state['etm_matched'] = True
-            break  # only inject first matching evolution
+    except Exception as e:
+        logger.warning(f"ETM analysis failed: {e}")
+        return {
+            "etm_context": None,
+            "etm_matched": False,
+        }
 
-    return state
+
+def _parse_etm_response(response: str) -> dict:
+    """Parse the LLM's JSON ETM response, with fallback defaults."""
+    try:
+        text = response.strip()
+        if "```" in text:
+            parts = text.split("```")
+            for part in parts:
+                part = part.strip()
+                if part.startswith("json"):
+                    part = part[4:].strip()
+                if part.startswith("{"):
+                    text = part
+                    break
+
+        data = json.loads(text)
+        return {
+            "concept": str(data.get("concept", "unknown")),
+            "context": str(data.get("context", "")),
+            "matched": bool(data.get("matched", False)),
+        }
+
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning(f"Failed to parse ETM response: {e}")
+        return {"concept": "unknown", "context": "", "matched": False}

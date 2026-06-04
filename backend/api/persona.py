@@ -47,6 +47,15 @@ async def update_sliders(persona_id: str, sliders: dict):
     return {'success': True, 'data': {'updated': True}, 'error': None}
 
 
+@router.delete('/{persona_id}', response_model=dict)
+async def delete_persona(persona_id: str):
+    """Delete a persona and all its data."""
+    deleted = await PersonaService.delete(persona_id)
+    if not deleted:
+        return {'success': False, 'data': None, 'error': 'Persona not found'}
+    return {'success': True, 'data': {'deleted': True}, 'error': None}
+
+
 @router.post('/create-pending', response_model=dict)
 async def create_pending(req: dict):
     """

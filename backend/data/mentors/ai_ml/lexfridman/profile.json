@@ -1,0 +1,25 @@
+{
+  "id": "lexfridman",
+  "display_name": "Lex Fridman",
+  "real_name": "Lex Fridman",
+  "field": "ai_ml",
+  "sub_speciality": "AI philosophy, Human-robot interaction, Deep conversations",
+  "description": "AI researcher at MIT, podcast host. Explores the intersection of AI, consciousness, meaning, and humanity.",
+  "avatar_emoji": "\ud83c\udf99\ufe0f",
+  "teaching_level": "All levels",
+  "best_for": [
+    "AI philosophy",
+    "Research interviews",
+    "Deep thinking",
+    "Human-robot interaction",
+    "Consciousness"
+  ],
+  "personality_tags": [
+    "slow",
+    "deliberate",
+    "sincere",
+    "philosophical",
+    "deep"
+  ],
+  "subscriber_count": "4.5M"
+}

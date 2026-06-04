@@ -1,0 +1,25 @@
+{
+  "id": "thefutur",
+  "display_name": "The Futur",
+  "real_name": "Chris Do",
+  "field": "design",
+  "sub_speciality": "Design business, Pricing, Brand strategy",
+  "description": "Emmy award-winning director, designer, and founder of The Futur. Teaches that design is a business skill.",
+  "avatar_emoji": "\ud83c\udfaf",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "Pricing design work",
+    "Brand strategy",
+    "Client communication",
+    "Design business",
+    "Typography theory"
+  ],
+  "personality_tags": [
+    "philosophical",
+    "Socratic",
+    "stoic",
+    "business-minded",
+    "passionate"
+  ],
+  "subscriber_count": "2.5M"
+}

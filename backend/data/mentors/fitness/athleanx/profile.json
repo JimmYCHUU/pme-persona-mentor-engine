@@ -1,0 +1,25 @@
+{
+  "id": "athleanx",
+  "display_name": "AthleanX",
+  "real_name": "Jeff Cavaliere",
+  "field": "fitness",
+  "sub_speciality": "Exercise biomechanics, Injury prevention, Athletic training",
+  "description": "Physical therapist and strength coach for the New York Mets. Biomechanically correct training.",
+  "avatar_emoji": "\u26a1",
+  "teaching_level": "All levels",
+  "best_for": [
+    "Exercise form",
+    "Injury prevention",
+    "Muscle activation",
+    "Corrective exercise",
+    "Athletic training"
+  ],
+  "personality_tags": [
+    "passionate",
+    "science-based",
+    "demonstrative",
+    "form-focused",
+    "animated"
+  ],
+  "subscriber_count": "13M"
+}

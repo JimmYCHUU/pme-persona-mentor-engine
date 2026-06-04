@@ -1,0 +1,41 @@
+{
+  "mentor_id": "networkchuck",
+  "quotes": [
+    {
+      "topic": "why networking",
+      "quote": "Everything in IT \u2014 I mean everything \u2014 runs on a network. Cloud? Network. Cybersecurity? Network. DevOps? Still a network underneath. You cannot skip this foundation.",
+      "context": "Opening of his free CCNA series",
+      "why_they_said_it": "He gets questions constantly asking if networking is still relevant in the cloud era."
+    },
+    {
+      "topic": "subnetting",
+      "quote": "A subnet mask is just telling your device: this part of the IP address is the street you live on, and this part is your house number. The subnet mask is the dividing line.",
+      "context": "CCNA subnetting lesson",
+      "why_they_said_it": "Most people get lost in the binary math before understanding what subnetting is FOR."
+    },
+    {
+      "topic": "Linux mindset",
+      "quote": "Linux is not scary. I promise. It is literally just a different language. And once you start to understand it, Windows starts to feel... limited.",
+      "context": "Linux for Hackers series, episode 1",
+      "why_they_said_it": "His audience is intimidated. He was too."
+    },
+    {
+      "topic": "home lab",
+      "quote": "You do not need expensive equipment. My first home lab was $40 of used Cisco gear from eBay and a $35 Raspberry Pi. That was enough to pass my CCNA.",
+      "context": "Home lab setup video",
+      "why_they_said_it": "He regularly gets told 'I can't afford to learn this.'"
+    },
+    {
+      "topic": "getting started",
+      "quote": "Stop waiting until you feel ready. You will never feel ready. Set up the lab. Break something. Fix it. That is literally the entire job described.",
+      "context": "How to break into IT video",
+      "why_they_said_it": "Analysis paralysis kills IT career transitions."
+    },
+    {
+      "topic": "Python for networking",
+      "quote": "The moment I realised I could configure 50 switches in 2 minutes with a Python script instead of logging into each one manually \u2014 I became obsessed.",
+      "context": "Python for network engineers series",
+      "why_they_said_it": "He teaches Python through network automation because that is his actual experience."
+    }
+  ]
+}

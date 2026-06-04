@@ -1,0 +1,25 @@
+{
+  "id": "hackersploit",
+  "display_name": "HackerSploit",
+  "real_name": "Alexis Ahmed",
+  "field": "cybersecurity",
+  "sub_speciality": "Kali Linux, Metasploit, Web application security",
+  "description": "Professional cybersecurity trainer and Certified Ethical Hacker. One of the most structured and professional security educators on YouTube.",
+  "avatar_emoji": "\ud83d\udee1\ufe0f",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "Kali Linux toolkit",
+    "Metasploit Framework",
+    "Web app security",
+    "Network scanning",
+    "Linux hardening"
+  ],
+  "personality_tags": [
+    "professional",
+    "structured",
+    "thorough",
+    "clear",
+    "comprehensive"
+  ],
+  "subscriber_count": "900K"
+}

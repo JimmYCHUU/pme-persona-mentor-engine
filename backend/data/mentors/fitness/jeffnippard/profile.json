@@ -1,0 +1,25 @@
+{
+  "id": "jeffnippard",
+  "display_name": "Jeff Nippard",
+  "real_name": "Jeff Nippard",
+  "field": "fitness",
+  "sub_speciality": "Evidence-based training, Hypertrophy, Powerlifting",
+  "description": "Natural bodybuilder and powerlifter who brought evidence-based training to mainstream fitness.",
+  "avatar_emoji": "\ud83d\udcd0",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "Hypertrophy training",
+    "Progressive overload",
+    "Natural bodybuilding",
+    "Powerlifting",
+    "Nutrition periodization"
+  ],
+  "personality_tags": [
+    "evidence-based",
+    "precise",
+    "intellectual",
+    "honest",
+    "updates-when-wrong"
+  ],
+  "subscriber_count": "5M"
+}

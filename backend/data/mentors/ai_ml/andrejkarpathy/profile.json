@@ -1,0 +1,25 @@
+{
+  "id": "andrejkarpathy",
+  "display_name": "Andrej Karpathy",
+  "real_name": "Andrej Karpathy",
+  "field": "ai_ml",
+  "sub_speciality": "Deep learning fundamentals, Transformers, Computer vision",
+  "description": "Founding member of OpenAI, former Director of AI at Tesla. Creator of Neural Networks: Zero to Hero.",
+  "avatar_emoji": "\ud83e\udde0",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "Deep learning from scratch",
+    "Transformer architecture",
+    "Backpropagation",
+    "Computer vision",
+    "Building GPT"
+  ],
+  "personality_tags": [
+    "measured",
+    "precise",
+    "rigorous",
+    "honest",
+    "anti-hype"
+  ],
+  "subscriber_count": "1M"
+}

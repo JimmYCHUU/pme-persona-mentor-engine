@@ -1,134 +1,141 @@
-"""
-Socratic node — full implementation.
-Computes deviation, selects Socratic Ladder level with mastery awareness,
-fetches vault citation, and emits mastery_event for background processing.
-"""
+"""Socratic node — determines WHAT to say and WHEN (ARCH-1).
 
+Separated from persona_node which handles HOW to say it.
+Full 5-level Socratic ladder implementation.
+
+Levels:
+  0 — Neutral / informational (friend mode always maps here)
+  1 — Gentle probing ("What do you think happens here?")
+  2 — Guided discovery ("What if we changed X?")
+  3 — Challenge ("Can you explain WHY that works?")
+  4 — Corrective ("Let's reconsider this part…")
+
+Uses REASONING_MODEL to assess user's understanding.
+Retrieves vault citations for grounding.
+"""
+import json
+import logging
 from graph.state import PMEState
+from services.llm_service import llm_service
 from rag.retriever import retriever
-from services.mastery_service import MasteryService
-from core.config import settings
 
-SOCRATIC_PROMPTS = {
-    0: None,  # silent
-    1: ('Ask ONE probing question about the fundamental constraint. '
-        'Do NOT name the error. Do NOT give the answer.'),
-    2: ('Reference a SPECIFIC piece of vault content relevant to the problem. '
-        'Point to it without explaining it. Ask if they remember it.'),
-    3: ('Explain the CONSEQUENCE of what the user is doing. '
-        'Still do NOT give the fix.'),
-    4: ('Give the direct solution. Then immediately ask: '
-        '"Now tell me WHY that works." Do not move on until they answer.'),
-}
+logger = logging.getLogger(__name__)
+
+SOCRATIC_SYSTEM_PROMPT = """You are a Socratic assessment engine. Analyze the student's message and conversation history to determine their understanding level.
+
+Return ONLY a valid JSON object with these keys:
+- "level": integer 0-4 representing Socratic intensity
+  0 = Student shows good understanding, just provide information
+  1 = Student seems unsure, gently probe their understanding
+  2 = Student has partial understanding, guide them to discover gaps
+  3 = Student has significant gaps, challenge their assumptions
+  4 = Student has a clear misconception that needs correction
+- "deviation_score": float 0.0-1.0 measuring how far the student's understanding deviates from correct
+  0.0 = No deviation, understanding is accurate
+  0.5 = Moderate gaps or partial misunderstanding
+  1.0 = Completely wrong understanding
+- "reasoning": brief explanation of your assessment
+
+Example response:
+{"level": 2, "deviation_score": 0.35, "reasoning": "Student understands the basic concept but confuses X with Y"}"""
 
 
-async def socratic_node(state: PMEState) -> PMEState:
+async def socratic_node(state: PMEState) -> dict:
+    """Determine Socratic level (0-4), deviation score, and vault citation.
+
+    In friend_mode, always returns level 0 (no probing).
+    Otherwise, uses REASONING_MODEL to assess understanding.
     """
-    Computes deviation score, selects Socratic Ladder level,
-    fetches vault citation if needed, emits mastery_event.
-    """
-    # In Friend Mode: always silent, no Socratic intervention
-    if state['mode'] == 'friend_mode':
-        state['deviation_score'] = 0.0
-        state['socratic_level'] = 0
-        state['vault_citation'] = None
-        state['mastery_event'] = None
-        return state
+    # Friend mode = no Socratic probing
+    if state.get("mode") == "friend_mode":
+        citation = await _get_citation(state)
+        return {
+            "socratic_level": 0,
+            "deviation_score": 0.0,
+            "vault_citation": citation,
+        }
 
-    # 1. Embed user message and compute deviation
-    score = await _compute_deviation(
-        state['user_message'], state['persona_id']
-    )
-    state['deviation_score'] = score
+    # Get vault citation for grounding
+    citation = await _get_citation(state)
 
-    # 2. Determine base ladder level from deviation score
-    threshold = settings.DEVIATION_THRESHOLD
-    if score < threshold:
-        base_level = 0
-    elif score < threshold + 0.1:
-        base_level = 1
-    elif score < threshold + 0.2:
-        base_level = 2
-    elif score < threshold + 0.3:
-        base_level = 3
-    else:
-        base_level = 4
-
-    # 3. Mastery-aware adjustment (only if deviation triggered)
-    if base_level > 0:
-        concept_key = await _extract_concept_key(state['user_message'])
-        if concept_key:
-            ledger_entry = await MasteryService.get_concept(
-                state['persona_id'], concept_key
+    # Build context from conversation history
+    history_context = ""
+    if state.get("session_snapshot"):
+        history = state["session_snapshot"].get("history", [])
+        if history:
+            recent = history[-6:]  # Last 3 exchanges
+            history_context = "\n".join(
+                f"{t['role'].upper()}: {t['content']}" for t in recent
             )
-            if ledger_entry:
-                if hasattr(ledger_entry, 'status') and ledger_entry.status == 'struggling':
-                    base_level = max(base_level, 2)  # skip level 1
-                if hasattr(ledger_entry, 'failure_count') and ledger_entry.failure_count >= 5:
-                    base_level = max(base_level, 3)  # skip to critique
 
-            # Check per-session failure count for level 4
-            snapshot = state.get('session_snapshot') or {}
-            session_failures = snapshot.get('failure_counts', {})
-            if session_failures.get(concept_key, 0) >= 3:
-                base_level = 4
+    # ETM context if available
+    etm_info = ""
+    if state.get("etm_context"):
+        etm_info = f"\n\nWorkspace context: {state['etm_context']}"
 
-    state['socratic_level'] = base_level
+    assessment_prompt = f"""Conversation history:
+{history_context}
 
-    # 4. Fetch vault citation for levels 2+
-    if base_level >= 2:
-        citation = await retriever.get_citation(
-            state['user_message'], state['persona_id']
-        )
-        state['vault_citation'] = citation
-    else:
-        state['vault_citation'] = None
+Current student message: {state['user_message']}{etm_info}
 
-    # 5. Emit mastery_event for BackgroundTask
-    outcome = 'correct' if base_level == 0 else 'incorrect'
-    state['mastery_event'] = {
-        'persona_id': state['persona_id'],
-        'session_id': state['session_id'],
-        'user_message': state['user_message'],
-        'outcome': outcome,
-        'socratic_level': base_level,
-    }
-
-    return state
-
-
-async def _compute_deviation(message: str, persona_id: str) -> float:
-    """
-    Embeds the user message and computes cosine distance from vault gold standard.
-    Returns a float 0.0 (no deviation) to 1.0 (maximum deviation).
-    """
-    results = await retriever.query(message, persona_id, top_k=1)
-    if not results:
-        return 0.0  # no vault data = no deviation judgment possible
-    similarity = results[0].score  # cosine similarity 0-1
-    return 1.0 - similarity  # deviation = inverse of similarity
-
-
-async def _extract_concept_key(message: str) -> str | None:
-    """
-    Extracts a simple concept key from the user message via a short LLM call.
-    Returns a snake_case key like 'tcp_handshake' or None if no concept found.
-    """
-    from services.llm_service import llm_service
-
-    prompt = (
-        f"Extract the main technical concept from this message as a single "
-        f"snake_case identifier (e.g. 'tcp_handshake', 'buffer_overflow'). "
-        f"If no specific concept, respond with 'none'. Message: {message[:200]}"
-    )
+Assess the student's understanding level and respond with the JSON object."""
 
     try:
-        result = await llm_service.chat(
-            message=prompt,
-            system='You extract concept keys. Respond with only the key, nothing else.',
-            use_reasoning=True,  # DeepSeek R1 for accurate reasoning
+        response = await llm_service.chat(
+            message=assessment_prompt,
+            system=SOCRATIC_SYSTEM_PROMPT,
+            use_reasoning=True,
         )
-        key = result.strip().lower().replace(' ', '_')
-        return None if key == 'none' else key[:50]
-    except Exception:
+
+        parsed = _parse_assessment(response)
+        return {
+            "socratic_level": parsed["level"],
+            "deviation_score": parsed["deviation_score"],
+            "vault_citation": citation,
+        }
+
+    except Exception as e:
+        logger.warning(f"Socratic assessment failed: {e}")
+        return {
+            "socratic_level": 0,
+            "deviation_score": 0.0,
+            "vault_citation": citation,
+        }
+
+
+async def _get_citation(state: PMEState) -> str | None:
+    """Retrieve vault citation for the user's message."""
+    try:
+        return await retriever.get_citation(
+            state["user_message"], state["persona_id"]
+        )
+    except Exception as e:
+        logger.debug(f"Vault citation retrieval failed: {e}")
         return None
+
+
+def _parse_assessment(response: str) -> dict:
+    """Parse the LLM's JSON assessment, with fallback defaults."""
+    try:
+        # Try to extract JSON from the response
+        # Handle case where LLM wraps JSON in markdown code blocks
+        text = response.strip()
+        if "```" in text:
+            # Extract content between code fences
+            parts = text.split("```")
+            for part in parts:
+                part = part.strip()
+                if part.startswith("json"):
+                    part = part[4:].strip()
+                if part.startswith("{"):
+                    text = part
+                    break
+
+        data = json.loads(text)
+        level = max(0, min(4, int(data.get("level", 0))))
+        deviation = max(0.0, min(1.0, float(data.get("deviation_score", 0.0))))
+        return {"level": level, "deviation_score": deviation}
+
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning(f"Failed to parse Socratic assessment: {e}")
+        return {"level": 0, "deviation_score": 0.0}

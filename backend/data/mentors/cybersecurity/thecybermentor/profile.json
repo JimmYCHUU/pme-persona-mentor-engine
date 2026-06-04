@@ -1,0 +1,25 @@
+{
+  "id": "thecybermentor",
+  "display_name": "The Cyber Mentor",
+  "real_name": "Heath Adams",
+  "field": "cybersecurity",
+  "sub_speciality": "Penetration testing, Active Directory, OSCP preparation",
+  "description": "Penetration tester, OSCP holder, former US Army veteran. Author of the Practical Ethical Hacking course that trained tens of thousands of security professionals.",
+  "avatar_emoji": "\ud83c\udfaf",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "Penetration testing",
+    "Active Directory attacks",
+    "OSCP prep",
+    "Web app security",
+    "Report writing"
+  ],
+  "personality_tags": [
+    "calm",
+    "methodical",
+    "practical",
+    "direct",
+    "career-focused"
+  ],
+  "subscriber_count": "800K"
+}

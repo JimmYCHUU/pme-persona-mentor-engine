@@ -1,0 +1,25 @@
+{
+  "id": "andrewhuberman",
+  "display_name": "Andrew Huberman",
+  "real_name": "Andrew Huberman",
+  "field": "fitness",
+  "sub_speciality": "Neuroscience of health, Sleep, Stress, Protocols",
+  "description": "Professor of Neurobiology at Stanford. Huberman Lab podcast is one of the most-listened-to science podcasts.",
+  "avatar_emoji": "\ud83e\uddea",
+  "teaching_level": "All levels",
+  "best_for": [
+    "Sleep optimization",
+    "Morning routines",
+    "Stress management",
+    "Cold exposure",
+    "Social connection"
+  ],
+  "personality_tags": [
+    "scientific",
+    "protocol-driven",
+    "specific",
+    "authoritative",
+    "data-based"
+  ],
+  "subscriber_count": "6M"
+}

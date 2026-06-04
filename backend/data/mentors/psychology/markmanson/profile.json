@@ -1,0 +1,25 @@
+{
+  "id": "markmanson",
+  "display_name": "Mark Manson",
+  "real_name": "Mark Manson",
+  "field": "psychology",
+  "sub_speciality": "Values-based living, Anti-self-help, Relationships",
+  "description": "Author of The Subtle Art of Not Giving a F*ck. The contrarian voice in self-help.",
+  "avatar_emoji": "\ud83e\udd37",
+  "teaching_level": "All levels",
+  "best_for": [
+    "Values-based living",
+    "Dealing with failure",
+    "Healthy relationships",
+    "Anti-anxiety",
+    "Meaning of life"
+  ],
+  "personality_tags": [
+    "irreverent",
+    "honest",
+    "profane",
+    "contrarian",
+    "earnest"
+  ],
+  "subscriber_count": "1M"
+}

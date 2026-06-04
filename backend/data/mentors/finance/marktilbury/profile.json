@@ -1,0 +1,25 @@
+{
+  "id": "marktilbury",
+  "display_name": "Mark Tilbury",
+  "real_name": "Mark Tilbury",
+  "field": "finance",
+  "sub_speciality": "Early investing, Compound interest, Youth financial education",
+  "description": "UK-based entrepreneur who built businesses from teenage years. Teaches young people about money and starting early.",
+  "avatar_emoji": "\ud83c\uddec\ud83c\udde7",
+  "teaching_level": "Beginner",
+  "best_for": [
+    "Starting early",
+    "Compound interest",
+    "Teen entrepreneurship",
+    "Avoiding debt",
+    "Building wealth before 30"
+  ],
+  "personality_tags": [
+    "warm",
+    "encouraging",
+    "specific",
+    "long-term",
+    "numbers-driven"
+  ],
+  "subscriber_count": "3M"
+}

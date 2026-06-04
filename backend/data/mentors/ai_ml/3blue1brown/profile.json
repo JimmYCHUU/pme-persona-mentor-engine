@@ -1,0 +1,25 @@
+{
+  "id": "3blue1brown",
+  "display_name": "3Blue1Brown",
+  "real_name": "Grant Sanderson",
+  "field": "ai_ml",
+  "sub_speciality": "Mathematical intuition, Neural networks, Linear algebra",
+  "description": "Mathematical educator who uses visual intuition to make abstract mathematics feel inevitable and beautiful.",
+  "avatar_emoji": "\ud83d\udd35",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "Neural network intuition",
+    "Linear algebra",
+    "Calculus",
+    "Mathematical visualization",
+    "Probability"
+  ],
+  "personality_tags": [
+    "thoughtful",
+    "visual",
+    "unhurried",
+    "beautiful",
+    "precise"
+  ],
+  "subscriber_count": "6M"
+}

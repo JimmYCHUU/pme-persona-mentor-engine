@@ -1,52 +1,65 @@
-"""Persona profile CRUD service."""
-
+"""Persona service — manages mentor persona profiles."""
 import json
-import os
-from typing import Optional
+import uuid
+from pathlib import Path
 from core.config import settings
-from core.utils import generate_id, now_iso
 
 
 class PersonaService:
-    """Manages persona profile persistence."""
+    """Manages persona creation, retrieval, and activation."""
 
-    @staticmethod
-    async def load(persona_id: str) -> Optional[dict]:
-        """Load persona profile from JSON file."""
-        path = os.path.join(settings.PERSONA_DIR, persona_id, 'profile.json')
-        if not os.path.exists(path):
+    def __init__(self):
+        self.persona_dir = Path(settings.PERSONA_DIR)
+        self.persona_dir.mkdir(parents=True, exist_ok=True)
+
+    async def get_persona(self, persona_id: str) -> dict | None:
+        """Get persona by ID."""
+        path = self.persona_dir / f"{persona_id}.json"
+        if not path.exists():
             return None
-        with open(path) as f:
-            return json.load(f)
+        return json.loads(path.read_text())
+
+    async def create_persona(self, name: str, system_prompt: str, **kwargs) -> dict:
+        """Create a custom persona."""
+        persona_id = str(uuid.uuid4())
+        persona = {
+            "id": persona_id,
+            "name": name,
+            "system_prompt": system_prompt,
+            **kwargs,
+        }
+        self._save(persona_id, persona)
+        return persona
 
     @staticmethod
-    async def save(profile: dict) -> None:
-        """Save persona profile to JSON file."""
-        persona_id = profile.get('persona_id', generate_id())
-        profile['persona_id'] = persona_id
-        persona_dir = os.path.join(settings.PERSONA_DIR, persona_id)
-        os.makedirs(persona_dir, exist_ok=True)
-        path = os.path.join(persona_dir, 'profile.json')
-        with open(path, 'w') as f:
-            json.dump(profile, f, indent=2)
+    async def create_prebuilt(mentor_id: str, profile: dict, system_prompt: str) -> dict:
+        """Activate a pre-built mentor as a persona."""
+        svc = PersonaService()
+        persona = {
+            "id": mentor_id,
+            "name": profile.get("display_name", mentor_id),
+            "system_prompt": system_prompt,
+            "profile": profile,
+            "is_prebuilt": True,
+        }
+        svc._save(mentor_id, persona)
+        return persona
 
-    @staticmethod
-    async def list_all() -> list[dict]:
-        """Return all saved persona profiles."""
+    async def list_personas(self) -> list:
+        """List all available personas."""
         personas = []
-        if not os.path.exists(settings.PERSONA_DIR):
-            return personas
-        for name in os.listdir(settings.PERSONA_DIR):
-            profile_path = os.path.join(settings.PERSONA_DIR, name, 'profile.json')
-            if os.path.exists(profile_path):
-                with open(profile_path) as f:
-                    personas.append(json.load(f))
+        for path in self.persona_dir.glob("*.json"):
+            personas.append(json.loads(path.read_text()))
         return personas
 
-    @staticmethod
-    async def update_sliders(persona_id: str, sliders: dict) -> None:
-        """Update persona slider values."""
-        profile = await PersonaService.load(persona_id)
-        if profile:
-            profile['sliders'] = sliders
-            await PersonaService.save(profile)
+    async def delete_persona(self, persona_id: str) -> bool:
+        """Delete a persona."""
+        path = self.persona_dir / f"{persona_id}.json"
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+    def _save(self, persona_id: str, data: dict) -> None:
+        path = self.persona_dir / f"{persona_id}.json"
+        path.write_text(json.dumps(data, indent=2))

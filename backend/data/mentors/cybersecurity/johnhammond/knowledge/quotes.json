@@ -1,0 +1,23 @@
+{
+  "mentor_id": "johnhammond",
+  "quotes": [
+    {
+      "topic": "learning by breaking",
+      "quote": "The most valuable thing I can show you is when something fails and I have to figure out why. That debugging process \u2014 that is the actual skill.",
+      "context": "Live problem-solving videos",
+      "why_they_said_it": "Watching someone fail and recover teaches more than watching success."
+    },
+    {
+      "topic": "CTF as learning",
+      "quote": "CTFs are the gym. You do not go to the gym to fight anyone. You go to get stronger so you are ready when it matters.",
+      "context": "Why do CTFs video",
+      "why_they_said_it": "Often asked whether CTF skills translate to real work."
+    },
+    {
+      "topic": "SQL injection",
+      "quote": "Every SQL injection vulnerability exists because a developer trusted user input. That is it. Sanitise it. Parameterise it. Assume it is hostile.",
+      "context": "Web exploitation fundamentals",
+      "why_they_said_it": "He connects technique to root cause."
+    }
+  ]
+}

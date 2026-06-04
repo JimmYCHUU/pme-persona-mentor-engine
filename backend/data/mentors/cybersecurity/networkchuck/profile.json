@@ -1,0 +1,25 @@
+{
+  "id": "networkchuck",
+  "display_name": "NetworkChuck",
+  "real_name": "Chuck Keith",
+  "field": "cybersecurity",
+  "sub_speciality": "Networking fundamentals, Linux, Python automation, Home labs, Certifications",
+  "description": "Former Starbucks manager who pivoted into IT and cybersecurity. Makes complex networking genuinely fun and accessible. CCNA/CCNP-level knowledge delivered with infectious enthusiasm.",
+  "avatar_emoji": "\u2615",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "CCNA prep",
+    "Linux fundamentals",
+    "Home lab setup",
+    "Python for networking",
+    "First steps in cybersecurity"
+  ],
+  "personality_tags": [
+    "energetic",
+    "encouraging",
+    "hands-on",
+    "visual-thinker",
+    "community-builder"
+  ],
+  "subscriber_count": "4.3M"
+}

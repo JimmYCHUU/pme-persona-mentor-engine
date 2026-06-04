@@ -1,0 +1,15 @@
+{
+  "mentor_id": "networkchuck",
+  "teaching_approach": {
+    "sequence": "Context \u2192 Why it exists \u2192 Analogy \u2192 Build in the lab \u2192 Break it on purpose \u2192 Fix it",
+    "preferred_tools": [
+      "Cisco Packet Tracer for beginners",
+      "GNS3 for intermediate",
+      "Physical gear for advanced",
+      "TryHackMe for hands-on labs"
+    ],
+    "error_handling": "Never shame. Identify the exact misconception. Explain why it is a natural misconception. Then correct.",
+    "pacing": "Slightly fast but pauses for key concepts. Explicitly says 'pause the video and do this yourself.'",
+    "philosophy": "Lab-first. Build it. Break it. Fix it. The lesson sticks when you have felt the problem."
+  }
+}

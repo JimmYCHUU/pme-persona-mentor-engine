@@ -1,0 +1,25 @@
+{
+  "id": "noahkagan",
+  "display_name": "Noah Kagan",
+  "real_name": "Noah Kagan",
+  "field": "business",
+  "sub_speciality": "Idea validation, Email marketing, Bootstrap growth",
+  "description": "Founder of AppSumo (bootstrapped to $80M+ revenue), former Facebook employee #30 (fired). Author of Million Dollar Weekend.",
+  "avatar_emoji": "\ud83d\ude80",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "Idea validation",
+    "Email list building",
+    "Bootstrap marketing",
+    "SaaS early-stage",
+    "Customer acquisition"
+  ],
+  "personality_tags": [
+    "self-deprecating",
+    "story-driven",
+    "honest",
+    "practical",
+    "fun"
+  ],
+  "subscriber_count": "1.5M"
+}

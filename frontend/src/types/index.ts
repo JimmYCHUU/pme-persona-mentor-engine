@@ -93,3 +93,32 @@ export interface ApiResponse<T = unknown> {
     data: T | null
     error: string | null
 }
+
+/* ── Mentor Gallery types ── */
+
+export interface MentorProfile {
+    id: string
+    display_name: string
+    real_name: string
+    field: string
+    sub_speciality: string
+    description: string
+    avatar_emoji: string
+    teaching_level: string
+    best_for: string[]
+    personality_tags: string[]
+    subscriber_count: string
+}
+
+export interface MentorCategory {
+    id: string
+    label: string
+    emoji: string
+    mentor_count: number
+}
+
+export interface GalleryActivation {
+    persona_id: string
+    mentor_name: string
+    status: string
+}

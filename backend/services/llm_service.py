@@ -1,55 +1,79 @@
 """
-LLM Service — wraps OpenRouter API with Ollama fallback.
+LLM Service — OpenRouter with fallback chain + Ollama + response cache.
 
-Primary: OpenRouter (deepseek-v3 for persona, deepseek-r1 for reasoning)
-Fallback: Local Ollama (llama3.2:3b) if OpenRouter is unavailable
+Primary: OpenRouter (configurable models)
+Fallback chain: tried in order on rate limit
+Last resort: local Ollama
+Graceful degradation: user-friendly message when all providers fail
 
-TWO MODELS, TWO JOBS:
-  PERSONA_MODEL   — deepseek-v3-0324:free  — persona voice, style transfer
-  REASONING_MODEL — deepseek-r1-0528:free  — Socratic scoring, concept extract
+ALL LLM calls in the system go through this service (ARCH-4).
 """
 
-import json
 import httpx
+import asyncio
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from core.config import settings
+from services.response_cache import get_cached, set_cached
 from typing import AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
-CTX_LIMIT = 8192       # conservative limit for DeepSeek V3 free
-CHARS_PER_TOKEN = 4    # rough approximation
+CTX_LIMIT = 8192
+CHARS_PER_TOKEN = 4
+
+FALLBACK_CHAIN = [
+    settings.FALLBACK_MODEL_1,  # meta-llama/llama-3.3-70b-instruct:free
+    settings.FALLBACK_MODEL_2,  # mistralai/mistral-7b-instruct:free
+]
 
 
 class LLMService:
-    """
-    Unified LLM service. Routes to OpenRouter by default,
-    falls back to local Ollama if OpenRouter is unreachable.
-    """
 
-    @retry(stop=stop_after_attempt(3),
-           wait=wait_exponential(multiplier=1, min=1, max=8))
-    async def chat(
-        self,
-        message: str,
-        system: str,
-        history: list = [],
-        use_reasoning: bool = False,
-    ) -> str:
-        """
-        Send a chat request.
-
-        Args:
-            message: The user message.
-            system: The system prompt (persona instructions).
-            history: Previous conversation turns.
-            use_reasoning: If True, uses REASONING_MODEL (DeepSeek R1).
-                           If False, uses PERSONA_MODEL (DeepSeek V3).
-        """
+    async def chat(self, message: str, system: str,
+                   history: list = [], use_reasoning: bool = False) -> str:
         model = settings.REASONING_MODEL if use_reasoning else settings.PERSONA_MODEL
-        trimmed = self._trim_history(history, system, message)
 
+        # Cache check for history-free calls
+        if not history:
+            cached = get_cached(model, system, message)
+            if cached:
+                return cached
+
+        response = await self._call_with_fallback(model, system, message, history)
+
+        if not history:
+            set_cached(model, system, message, response)
+
+        return response
+
+    async def _call_with_fallback(self, model, system, message, history) -> str:
+        models = [model] + FALLBACK_CHAIN
+
+        for m in models:
+            for attempt in range(3):
+                try:
+                    return await self._call_openrouter(m, system, message, history)
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 429:
+                        if attempt < 2:
+                            await asyncio.sleep(2 ** attempt)
+                        continue
+                    raise
+                except Exception:
+                    break
+
+        # All failed — try local Ollama
+        try:
+            return await self._call_ollama(system, message, history)
+        except Exception:
+            return (
+                "I need a moment. The thinking pipeline is at capacity. "
+                "Give it 60 seconds and ask me again."
+            )
+
+    async def _call_openrouter(self, model, system, message, history) -> str:
+        trimmed = self._trim(system, message, history)
         payload = {
             "model": model,
             "messages": [
@@ -59,168 +83,63 @@ class LLMService:
             ],
             "stream": False,
         }
+        async with httpx.AsyncClient(timeout=120.0) as c:
+            r = await c.post(
+                f"{settings.OPENROUTER_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:5173",
+                    "X-Title": "Persona Mentor Engine",
+                },
+                json=payload,
+            )
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"]
 
-        # Try OpenRouter first
-        if settings.OPENROUTER_API_KEY:
-            try:
-                return await self._call_openrouter(payload)
-            except Exception as e:
-                logger.warning(
-                    f"OpenRouter failed ({e}), falling back to Ollama"
-                )
-
-        # Fallback to local Ollama
-        return await self._call_ollama(system, message, trimmed)
-
-    async def stream(
-        self,
-        message: str,
-        system: str,
-        history: list = [],
-        use_reasoning: bool = False,
-    ) -> AsyncGenerator[str, None]:
-        """Streaming version — yields token strings."""
-        model = settings.REASONING_MODEL if use_reasoning else settings.PERSONA_MODEL
-        trimmed = self._trim_history(history, system, message)
-
+    async def _call_ollama(self, system, message, history) -> str:
+        trimmed = self._trim(system, message, history)
         payload = {
-            "model": model,
+            "model": settings.OLLAMA_FALLBACK_MODEL,
             "messages": [
                 {"role": "system", "content": system},
                 *trimmed,
                 {"role": "user", "content": message},
             ],
-            "stream": True,
+            "stream": False,
         }
-
-        if settings.OPENROUTER_API_KEY:
-            try:
-                async for token in self._stream_openrouter(payload):
-                    yield token
-                return
-            except Exception as e:
-                logger.warning(f"OpenRouter stream failed ({e}), falling back")
-
-        # Fallback
-        result = await self._call_ollama(system, message, trimmed)
-        yield result
+        async with httpx.AsyncClient(timeout=120.0) as c:
+            r = await c.post(f"{settings.OLLAMA_BASE_URL}/api/chat", json=payload)
+            r.raise_for_status()
+            return r.json()["message"]["content"]
 
     async def check_health(self) -> dict:
-        """
-        Returns status of both OpenRouter and local Ollama.
-        Used by the /health endpoint.
-        """
-        status = {
-            "openrouter": False,
-            "ollama": False,
-            "primary": "none"
-        }
-
-        # Check OpenRouter
+        status = {"openrouter": False, "ollama": False, "primary": "none"}
         if settings.OPENROUTER_API_KEY:
             try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    r = await client.get(
+                async with httpx.AsyncClient(timeout=5.0) as c:
+                    r = await c.get(
                         "https://openrouter.ai/api/v1/models",
                         headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
                     )
                     status["openrouter"] = r.status_code == 200
             except Exception:
                 pass
-
-        # Check Ollama
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                r = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
+            async with httpx.AsyncClient(timeout=3.0) as c:
+                r = await c.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
                 status["ollama"] = r.status_code == 200
         except Exception:
             pass
-
         if status["openrouter"]:
             status["primary"] = "openrouter"
         elif status["ollama"]:
             status["primary"] = "ollama"
-
         return status
 
-    # ── Private helpers ────────────────────────────────────────
-
-    async def _call_openrouter(self, payload: dict) -> str:
-        """POST to OpenRouter API (OpenAI-compatible)."""
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(
-                f"{settings.OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:5173",
-                    "X-Title": "Persona Mentor Engine",
-                },
-                json=payload,
-            )
-            r.raise_for_status()
-            data = r.json()
-            return data["choices"][0]["message"]["content"]
-
-    async def _stream_openrouter(
-        self, payload: dict
-    ) -> AsyncGenerator[str, None]:
-        """Streaming POST to OpenRouter API."""
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            async with client.stream(
-                "POST",
-                f"{settings.OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:5173",
-                    "X-Title": "Persona Mentor Engine",
-                },
-                json=payload,
-            ) as r:
-                r.raise_for_status()
-                async for line in r.aiter_lines():
-                    if line.startswith("data: ") and line != "data: [DONE]":
-                        try:
-                            chunk = json.loads(line[6:])
-                            delta = chunk["choices"][0]["delta"].get("content", "")
-                            if delta:
-                                yield delta
-                        except Exception:
-                            pass
-
-    async def _call_ollama(
-        self, system: str, message: str, history: list
-    ) -> str:
-        """Fallback to local Ollama."""
-        payload = {
-            "model": settings.OLLAMA_FALLBACK_MODEL,
-            "messages": [
-                {"role": "system", "content": system},
-                *history,
-                {"role": "user", "content": message},
-            ],
-            "stream": False,
-        }
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(
-                f"{settings.OLLAMA_BASE_URL}/api/chat", json=payload
-            )
-            r.raise_for_status()
-            return r.json()["message"]["content"]
-
-    def _trim_history(
-        self, history: list, system: str, message: str
-    ) -> list:
-        """Keep most recent turns within context budget."""
-        budget = (
-            CTX_LIMIT * CHARS_PER_TOKEN
-            - len(system)
-            - len(message)
-            - 400  # safety margin
-        )
-        result = []
-        used = 0
+    def _trim(self, system, message, history) -> list:
+        budget = CTX_LIMIT * CHARS_PER_TOKEN - len(system) - len(message) - 400
+        result, used = [], 0
         for turn in reversed(history):
             chars = len(turn.get("content", ""))
             if used + chars > budget:
@@ -230,5 +149,4 @@ class LLMService:
         return result
 
 
-# Module-level singleton — import this everywhere
 llm_service = LLMService()

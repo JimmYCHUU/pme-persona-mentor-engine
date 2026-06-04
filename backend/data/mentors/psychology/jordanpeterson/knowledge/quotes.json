@@ -1,0 +1,23 @@
+{
+  "mentor_id": "jordanpeterson",
+  "quotes": [
+    {
+      "topic": "responsibility",
+      "quote": "Compare yourself to who you were yesterday, not to who someone else is today.",
+      "context": "12 Rules for Life, Rule 4",
+      "why_they_said_it": "Comparison to others produces resentment; comparison to past self produces motivation."
+    },
+    {
+      "topic": "order and chaos",
+      "quote": "Life is suffering. That is not pessimistic \u2014 it is factual. The question is whether your suffering will be meaningful.",
+      "context": "Lectures on Meaning",
+      "why_they_said_it": "He builds his framework on the observation that suffering is unavoidable."
+    },
+    {
+      "topic": "starting small",
+      "quote": "If you cannot bring peace to your household, how dare you try to save the world?",
+      "context": "12 Rules for Life",
+      "why_they_said_it": "Consistent critique of prioritising activism over personal responsibility."
+    }
+  ]
+}

@@ -1,141 +1,116 @@
-"""
-Full cert_node — generates Proof of Mastery certificates.
-Runs as a FastAPI BackgroundTask, NOT in the LangGraph pipeline.
-"""
+"""Cert node — Proof of Mastery certificate generation (ARCH-2).
 
+Runs as BackgroundTask after mastery_node. Checks if any concepts
+have crossed the mastery threshold and generates certificates.
+"""
 import json
-import os
+import uuid
 import logging
+from datetime import datetime, timezone
+from graph.state import PMEState
 from core.config import settings
 from core.database import AsyncSessionLocal
-from core.utils import generate_id, now_iso
-from models.mastery import MasteryCertificate, MasteryLedger
+from models.mastery import MasteryLedger, MasteryCertificate
 from services.llm_service import llm_service
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
+CERT_SYSTEM_PROMPT = """You are a mentor writing a short certificate statement for a student who has demonstrated mastery of a concept. Write 2-3 sentences acknowledging their achievement. Be warm, specific, and encouraging. Reference the concept by name."""
 
-async def generate_certificate(persona_id: str, concept_key: str) -> dict | None:
+
+async def cert_node(state: PMEState) -> dict:
+    """Issue Proof of Mastery certificates for concepts at threshold.
+
+    Called as a BackgroundTask, not as a graph node (ARCH-2).
+    Checks mastery_event concepts against thresholds.
     """
-    Generate a Proof of Mastery certificate for a concept.
-    Called when mastery_node detects should_certify=True.
+    mastery_event = state.get("mastery_event")
+    if not mastery_event:
+        return {}
 
-    Returns the cert data dict, or None on failure.
-    """
-    async with AsyncSessionLocal() as db:
-        # Get mastery ledger entry
-        result = await db.execute(
-            select(MasteryLedger).where(
-                MasteryLedger.persona_id == persona_id,
-                MasteryLedger.concept_key == concept_key,
-            )
-        )
-        entry = result.scalar_one_or_none()
-        if not entry:
-            logger.warning(f'cert_node: no ledger entry for {concept_key}')
-            return None
+    persona_id = mastery_event.get("persona_id", "")
+    concepts = mastery_event.get("concepts", [])
 
-        # Check not already certified
-        cert_check = await db.execute(
-            select(MasteryCertificate).where(
-                MasteryCertificate.persona_id == persona_id,
-                MasteryCertificate.concept_key == concept_key,
-            )
-        )
-        if cert_check.scalar_one_or_none():
-            logger.info(f'cert_node: {concept_key} already certified')
-            return None
-
-    # Generate mentor statement via LLM
-    mentor_statement = await _generate_mentor_statement(
-        persona_id, concept_key, entry
-    )
-
-    evidence = {
-        'sessions_tested': len(json.loads(entry.sessions_tested or '[]')),
-        'success_count': entry.success_count,
-        'failure_count': entry.failure_count,
-        'mastery_score': entry.mastery_score,
-    }
-
-    cert_id = generate_id()
-    issued_at = now_iso()
-
-    # Save to SQLite
-    async with AsyncSessionLocal() as db:
-        cert = MasteryCertificate(
-            cert_id=cert_id,
-            persona_id=persona_id,
-            concept_key=concept_key,
-            concept_label=entry.concept_label,
-            issued_at=issued_at,
-            mentor_statement=mentor_statement,
-            evidence_summary=json.dumps(evidence),
-            cert_json_path='',
-            delivered=0,
-        )
-        db.add(cert)
-        await db.commit()
-
-    # Save as JSON file for export
-    cert_data = {
-        'cert_id': cert_id,
-        'persona_id': persona_id,
-        'concept_key': concept_key,
-        'concept_label': entry.concept_label,
-        'issued_at': issued_at,
-        'mentor_statement': mentor_statement,
-        'evidence_summary': evidence,
-    }
-
-    cert_dir = os.path.join(settings.MASTERY_CERT_DIR, persona_id)
-    os.makedirs(cert_dir, exist_ok=True)
-    cert_json_path = os.path.join(cert_dir, f'{cert_id}.json')
-    with open(cert_json_path, 'w') as f:
-        json.dump(cert_data, f, indent=2)
-
-    # Update the cert_json_path
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(MasteryCertificate).where(
-                MasteryCertificate.cert_id == cert_id,
-            )
-        )
-        c = result.scalar_one()
-        c.cert_json_path = cert_json_path
-        await db.commit()
-
-    logger.info(f'cert_node: certificate issued for {concept_key} ({cert_id})')
-    return cert_data
-
-
-async def _generate_mentor_statement(persona_id: str, concept_key: str,
-                                      entry: MasteryLedger) -> str:
-    """Generate a personalized mentor statement for the certificate."""
-    from services.persona_service import PersonaService
-
-    profile = await PersonaService.load(persona_id)
-    mentor_name = profile['name'] if profile else 'Your Mentor'
-
-    prompt = (
-        f'You are {mentor_name}. '
-        f'Write a 2-3 sentence "Proof of Mastery" statement for your student '
-        f'who has mastered "{concept_key.replace("_", " ")}". '
-        f'They succeeded {entry.success_count} times across '
-        f'{len(json.loads(entry.sessions_tested or "[]"))} sessions. '
-        f'Speak in your authentic voice. Be proud but keep it real. '
-        f'Do not use phrases like "I am pleased to certify".'
-    )
+    if not concepts or not persona_id:
+        return {}
 
     try:
-        statement = await llm_service.chat(
-            message=prompt,
-            system=f'Write a brief mastery certification statement as {mentor_name}.',
-            use_reasoning=False,
-        )
-        return statement.strip()
+        async with AsyncSessionLocal() as db:
+            for concept in concepts:
+                if concept.get("outcome") != "success":
+                    continue
+
+                concept_key = concept.get("key", "")
+                if not concept_key:
+                    continue
+
+                # Check mastery score
+                result = await db.execute(
+                    select(MasteryLedger).where(
+                        MasteryLedger.persona_id == persona_id,
+                        MasteryLedger.concept_key == concept_key,
+                    )
+                )
+                entry = result.scalar_one_or_none()
+                if entry is None:
+                    continue
+
+                # Check thresholds
+                if entry.mastery_score < settings.MASTERY_CERT_THRESHOLD:
+                    continue
+                if entry.success_count < settings.MASTERY_CERT_MIN_SUCCESSES:
+                    continue
+
+                # Parse sessions_tested
+                try:
+                    sessions = json.loads(entry.sessions_tested or "[]")
+                except (json.JSONDecodeError, TypeError):
+                    sessions = []
+                if len(sessions) < settings.MASTERY_CERT_MIN_SESSIONS:
+                    continue
+
+                # Check for existing cert
+                cert_result = await db.execute(
+                    select(MasteryCertificate).where(
+                        MasteryCertificate.persona_id == persona_id,
+                        MasteryCertificate.concept_key == concept_key,
+                    )
+                )
+                existing_cert = cert_result.scalar_one_or_none()
+                if existing_cert:
+                    continue
+
+                # Generate mentor statement
+                try:
+                    statement = await llm_service.chat(
+                        message=f"Write a certificate statement for mastering: {entry.concept_label}",
+                        system=CERT_SYSTEM_PROMPT,
+                    )
+                except Exception:
+                    statement = f"Congratulations on mastering {entry.concept_label}!"
+
+                # Create certificate
+                cert = MasteryCertificate(
+                    cert_id=f"cert_{uuid.uuid4().hex[:12]}",
+                    persona_id=persona_id,
+                    concept_key=concept_key,
+                    concept_label=entry.concept_label,
+                    issued_at=datetime.now(timezone.utc).isoformat(),
+                    mentor_statement=statement,
+                    evidence_summary=json.dumps({
+                        "sessions_tested": len(sessions),
+                        "success_count": entry.success_count,
+                        "failure_count": entry.failure_count,
+                        "mastery_score": entry.mastery_score,
+                    }),
+                    delivered=0,
+                )
+                db.add(cert)
+                await db.commit()
+                logger.info(f"Cert issued for {persona_id}/{concept_key}")
+
     except Exception as e:
-        logger.error(f'cert_node: LLM statement generation failed: {e}')
-        return (f'{mentor_name} has determined that you have demonstrated '
-                f'mastery of {concept_key.replace("_", " ")}.')
+        logger.warning(f"Cert generation failed: {e}")
+
+    return {}

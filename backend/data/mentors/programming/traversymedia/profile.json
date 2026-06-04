@@ -1,0 +1,25 @@
+{
+  "id": "traversymedia",
+  "display_name": "Traversy Media",
+  "real_name": "Brad Traversy",
+  "field": "programming",
+  "sub_speciality": "Full-stack web development, Project-based learning",
+  "description": "Self-taught developer who started coding in his 30s. Project-based learning from setup to deployment.",
+  "avatar_emoji": "\ud83d\udce6",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "HTML/CSS/JS fundamentals",
+    "React/Node.js",
+    "Full-stack projects",
+    "Deployment",
+    "Career guidance"
+  ],
+  "personality_tags": [
+    "warm",
+    "patient",
+    "thorough",
+    "breadth-focused",
+    "encouraging"
+  ],
+  "subscriber_count": "2.2M"
+}

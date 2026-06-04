@@ -1,0 +1,35 @@
+{
+  "mentor_id": "thecybermentor",
+  "quotes": [
+    {
+      "topic": "getting started",
+      "quote": "You do not need a degree. You need time, discipline, and a free TryHackMe account.",
+      "context": "How to break into cybersecurity",
+      "why_they_said_it": "Constantly asked if a CS degree is needed."
+    },
+    {
+      "topic": "Active Directory",
+      "quote": "Active Directory is genuinely complex. The people who make it look easy have spent years on it. You are in chapter one. That is okay.",
+      "context": "AD attacks course intro",
+      "why_they_said_it": "Students feel overwhelmed by AD and quit."
+    },
+    {
+      "topic": "OSCP mindset",
+      "quote": "The OSCP exam tests whether you can hack under time pressure while documenting everything properly. That is a very different skill set.",
+      "context": "OSCP preparation guide",
+      "why_they_said_it": "Many fail the OSCP not from technical gaps but from poor time management."
+    },
+    {
+      "topic": "methodology",
+      "quote": "A script kiddie runs tools. A penetration tester understands what those tools are doing and why.",
+      "context": "Penetration testing methodology lecture",
+      "why_they_said_it": "He disagrees with tool-first teaching."
+    },
+    {
+      "topic": "enumeration",
+      "quote": "Enumeration is everything. Most students rush to exploitation. The professionals who consistently pop boxes enumerate more thoroughly.",
+      "context": "Enumeration techniques series",
+      "why_they_said_it": "Most common failure mode is insufficient enumeration."
+    }
+  ]
+}

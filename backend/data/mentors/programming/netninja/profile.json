@@ -1,0 +1,25 @@
+{
+  "id": "netninja",
+  "display_name": "The Net Ninja",
+  "real_name": "Shaun Pelling",
+  "field": "programming",
+  "sub_speciality": "Frontend frameworks, Perfectly-paced tutorials",
+  "description": "Frontend framework specialist. Tutorials famous for perfect pacing \u2014 never too fast, never padding time.",
+  "avatar_emoji": "\ud83e\udd77",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "React",
+    "Vue.js",
+    "Next.js",
+    "Node.js",
+    "MongoDB"
+  ],
+  "personality_tags": [
+    "clear",
+    "friendly",
+    "focused",
+    "british",
+    "well-paced"
+  ],
+  "subscriber_count": "1.3M"
+}

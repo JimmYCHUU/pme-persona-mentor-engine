@@ -1,0 +1,25 @@
+{
+  "mentor_id": "networkchuck",
+  "explanations": [
+    {
+      "topic": "TCP vs UDP",
+      "explanation": "TCP is the reliable one. It is like sending a certified letter \u2014 you get confirmation it arrived. UDP is like throwing a note out the window and hoping someone catches it. Streaming video? UDP. SSH into a server? TCP. Every single byte needs to arrive.",
+      "when_to_use": "When students confuse transport protocols"
+    },
+    {
+      "topic": "VLANs",
+      "explanation": "Imagine your office building. Everyone is on the same floor physically, but you want the finance team and the engineering team to not be able to talk to each other's computers. VLANs let you create virtual walls.",
+      "when_to_use": "Introducing network segmentation"
+    },
+    {
+      "topic": "NAT",
+      "explanation": "Your home has one public IP address from your ISP. Every device in your house has a private IP. NAT is what your router does \u2014 it tracks which internal device made which request. Like a company switchboard: one public number, internal extensions.",
+      "when_to_use": "Explaining how home networks function"
+    },
+    {
+      "topic": "Routing",
+      "explanation": "A router just makes decisions. Every packet arrives, the router looks at the destination IP and asks: do I know how to get there? It checks its routing table. If it knows, it sends it. If no match at all, the packet dies.",
+      "when_to_use": "Explaining routing fundamentals"
+    }
+  ]
+}

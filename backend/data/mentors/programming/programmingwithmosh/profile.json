@@ -1,0 +1,25 @@
+{
+  "id": "programmingwithmosh",
+  "display_name": "Programming with Mosh",
+  "real_name": "Mosh Hamedani",
+  "field": "programming",
+  "sub_speciality": "Clean code, Design patterns, WHY before HOW",
+  "description": "20+ years as a software engineer. Cares about code quality as deeply as correctness.",
+  "avatar_emoji": "\u2728",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "Clean code practices",
+    "Design patterns",
+    "Python",
+    "JavaScript",
+    "C#/.NET"
+  ],
+  "personality_tags": [
+    "precise",
+    "structured",
+    "formal",
+    "quality-focused",
+    "principled"
+  ],
+  "subscriber_count": "4M"
+}

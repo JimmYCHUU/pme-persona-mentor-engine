@@ -1,0 +1,25 @@
+{
+  "id": "designcodewithchris",
+  "display_name": "DesignCode",
+  "real_name": "Chris Ried",
+  "field": "design",
+  "sub_speciality": "SwiftUI, Design systems, Figma-to-code",
+  "description": "The bridge between designers and developers. Beautiful products that are also well-built.",
+  "avatar_emoji": "\ud83d\udd17",
+  "teaching_level": "Intermediate",
+  "best_for": [
+    "SwiftUI",
+    "React design systems",
+    "Motion design",
+    "Figma-to-code",
+    "Design tokens"
+  ],
+  "personality_tags": [
+    "calm",
+    "precise",
+    "dual-skilled",
+    "aesthetic",
+    "technical"
+  ],
+  "subscriber_count": "300K"
+}

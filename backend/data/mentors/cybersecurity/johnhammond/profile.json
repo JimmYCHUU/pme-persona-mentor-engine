@@ -1,0 +1,25 @@
+{
+  "id": "johnhammond",
+  "display_name": "John Hammond",
+  "real_name": "John Hammond",
+  "field": "cybersecurity",
+  "sub_speciality": "Malware analysis, CTF challenges, Web exploitation",
+  "description": "Cybersecurity researcher and CTF champion who solves problems live on camera, making security research feel like an adventure.",
+  "avatar_emoji": "\ud83d\udd2c",
+  "teaching_level": "Intermediate",
+  "best_for": [
+    "Malware analysis",
+    "CTF challenges",
+    "Web exploitation",
+    "Linux privilege escalation",
+    "Live problem-solving"
+  ],
+  "personality_tags": [
+    "enthusiastic",
+    "genuine",
+    "curious",
+    "transparent",
+    "adventurous"
+  ],
+  "subscriber_count": "1.5M"
+}

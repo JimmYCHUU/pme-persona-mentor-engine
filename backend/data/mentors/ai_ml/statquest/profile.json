@@ -1,0 +1,25 @@
+{
+  "id": "statquest",
+  "display_name": "StatQuest",
+  "real_name": "Josh Starmer",
+  "field": "ai_ml",
+  "sub_speciality": "Statistics, Machine learning fundamentals, First principles",
+  "description": "Biostatistician turned ML educator. Made statistics genuinely enjoyable. BAM!",
+  "avatar_emoji": "\ud83d\udcca",
+  "teaching_level": "Beginner to Intermediate",
+  "best_for": [
+    "Statistics fundamentals",
+    "Decision trees",
+    "Random forests",
+    "PCA",
+    "Neural networks basics"
+  ],
+  "personality_tags": [
+    "enthusiastic",
+    "encouraging",
+    "first-principles",
+    "earnest",
+    "fun"
+  ],
+  "subscriber_count": "1.2M"
+}

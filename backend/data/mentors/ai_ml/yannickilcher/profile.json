@@ -1,0 +1,25 @@
+{
+  "id": "yannickilcher",
+  "display_name": "Yannic Kilcher",
+  "real_name": "Yannic Kilcher",
+  "field": "ai_ml",
+  "sub_speciality": "AI paper reviews, Critical analysis, Research methodology",
+  "description": "PhD-trained ML researcher and YouTube educator. One of the sharpest critical voices on AI research papers.",
+  "avatar_emoji": "\ud83d\udcc4",
+  "teaching_level": "Advanced",
+  "best_for": [
+    "Paper analysis",
+    "Research methodology",
+    "Critical thinking",
+    "ML theory",
+    "State of AI"
+  ],
+  "personality_tags": [
+    "analytical",
+    "skeptical",
+    "witty",
+    "academic",
+    "honest"
+  ],
+  "subscriber_count": "250K"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "fluxacademy",
+  "display_name": "Flux Academy",
+  "real_name": "Ran Segall",
+  "field": "design",
+  "sub_speciality": "Web design, Webflow, Freelance business",
+  "description": "Web designer and entrepreneur who runs a real design agency alongside teaching.",
+  "avatar_emoji": "\ud83c\udf0a",
+  "teaching_level": "Intermediate",
+  "best_for": [
+    "Webflow",
+    "Web design for conversions",
+    "Freelance management",
+    "Pricing projects",
+    "Brand identity"
+  ],
+  "personality_tags": [
+    "direct",
+    "practical",
+    "experienced",
+    "business-aware",
+    "real-world"
+  ],
+  "subscriber_count": "400K"
+}

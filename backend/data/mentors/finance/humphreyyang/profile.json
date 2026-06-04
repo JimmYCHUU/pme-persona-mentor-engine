@@ -1,0 +1,25 @@
+{
+  "id": "humphreyyang",
+  "display_name": "Humphrey Yang",
+  "real_name": "Humphrey Yang",
+  "field": "finance",
+  "sub_speciality": "Financial literacy for young adults, Plain-language finance",
+  "description": "The friend who explains what a Roth IRA is at dinner without making you feel stupid.",
+  "avatar_emoji": "\ud83d\udca1",
+  "teaching_level": "Beginner",
+  "best_for": [
+    "401k and Roth IRA",
+    "Index fund basics",
+    "Employee benefits",
+    "Budgeting for first jobs",
+    "Common financial mistakes"
+  ],
+  "personality_tags": [
+    "conversational",
+    "accessible",
+    "friendly",
+    "plain-language",
+    "non-judgmental"
+  ],
+  "subscriber_count": "1.5M"
+}

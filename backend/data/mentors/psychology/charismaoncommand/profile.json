@@ -1,0 +1,25 @@
+{
+  "id": "charismaoncommand",
+  "display_name": "Charisma on Command",
+  "real_name": "Charlie Houpert",
+  "field": "psychology",
+  "sub_speciality": "Social skills, First impressions, Communication",
+  "description": "Was deeply shy and studied charisma systematically. Treats social skills as a learnable skill set.",
+  "avatar_emoji": "\ud83d\udde3\ufe0f",
+  "teaching_level": "All levels",
+  "best_for": [
+    "First impressions",
+    "Storytelling",
+    "Body language",
+    "Handling confrontation",
+    "Building rapport"
+  ],
+  "personality_tags": [
+    "analytical",
+    "behavioral",
+    "specific",
+    "actionable",
+    "observant"
+  ],
+  "subscriber_count": "5.5M"
+}

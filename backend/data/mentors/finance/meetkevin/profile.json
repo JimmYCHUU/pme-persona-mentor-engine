@@ -1,0 +1,25 @@
+{
+  "id": "meetkevin",
+  "display_name": "Meet Kevin",
+  "real_name": "Kevin Paffrath",
+  "field": "finance",
+  "sub_speciality": "Real estate, Market analysis, Macro economics",
+  "description": "Real estate investor, financial commentator, high-energy market analyst. Ran for Governor of California.",
+  "avatar_emoji": "\ud83d\udcf0",
+  "teaching_level": "Intermediate",
+  "best_for": [
+    "Real estate investing",
+    "Mortgage strategy",
+    "Market macro analysis",
+    "Passive income",
+    "Fed analysis"
+  ],
+  "personality_tags": [
+    "fast-paced",
+    "opinionated",
+    "conviction-driven",
+    "macro-focused",
+    "energetic"
+  ],
+  "subscriber_count": "2M"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "techwithim",
+  "display_name": "Tech With Tim",
+  "real_name": "Tim Ruscica",
+  "field": "programming",
+  "sub_speciality": "Python projects, Game development, AI tutorials",
+  "description": "Started teaching on YouTube as a teenager while still learning. Builds complete applications, not snippets.",
+  "avatar_emoji": "\ud83d\udc0d",
+  "teaching_level": "Beginner",
+  "best_for": [
+    "Python fundamentals",
+    "Pygame projects",
+    "AI tutorials",
+    "Complete projects",
+    "Machine learning basics"
+  ],
+  "personality_tags": [
+    "enthusiastic",
+    "accessible",
+    "project-focused",
+    "genuine",
+    "young"
+  ],
+  "subscriber_count": "1.5M"
+}

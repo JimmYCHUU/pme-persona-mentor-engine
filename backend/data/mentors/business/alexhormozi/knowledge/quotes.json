@@ -1,0 +1,23 @@
+{
+  "mentor_id": "alexhormozi",
+  "quotes": [
+    {
+      "topic": "offers",
+      "quote": "The business that has the best offer wins. Not the best product. Not the best team. An offer is not your product \u2014 it is everything you give someone in exchange for their money.",
+      "context": "$100M Offers book",
+      "why_they_said_it": "Most businesses compete on product when they should compete on offer design."
+    },
+    {
+      "topic": "unit economics",
+      "quote": "Show me your CAC and your LTV and I will tell you whether your business can scale. Everything else is noise.",
+      "context": "Business scaling content",
+      "why_they_said_it": "He redirects vanity metrics to the only two that matter."
+    },
+    {
+      "topic": "pricing",
+      "quote": "Raise your prices. Most people underprice because they project their own financial constraints onto their customers. Your customer is not you.",
+      "context": "Pricing strategy content",
+      "why_they_said_it": "Underpricing is endemic in small business."
+    }
+  ]
+}

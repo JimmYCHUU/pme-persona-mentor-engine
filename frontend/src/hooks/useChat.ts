@@ -1,5 +1,6 @@
 /**
  * useChat hook — manages sending messages and receiving responses.
+ * Shows error messages in chat if the backend fails.
  */
 
 import { useCallback } from 'react'
@@ -34,18 +35,33 @@ export function useChat() {
             )
 
             if (res.success && res.data) {
+                const d = res.data as any
                 const assistantMsg: ChatMessage = {
                     role: 'assistant',
-                    content: res.data.response,
+                    content: d.response,
                     timestamp: new Date().toISOString(),
-                    socratic_level: res.data.socratic_level,
-                    vault_citation: res.data.vault_citation,
+                    socratic_level: d.socratic_level,
+                    vault_citation: d.vault_citation,
                 }
                 addMessage(assistantMsg)
-                if (res.data.session_id) setSessionId(res.data.session_id)
+                if (d.session_id) setSessionId(d.session_id)
+            } else {
+                // Backend returned an error — show it in chat
+                const errorMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: `⚠ ${res.error || 'The mentor could not respond. Please try again.'}`,
+                    timestamp: new Date().toISOString(),
+                }
+                addMessage(errorMsg)
             }
         } catch (err) {
             console.error('Chat error:', err)
+            const errorMsg: ChatMessage = {
+                role: 'assistant',
+                content: '⚠ Connection error — the backend may be unreachable. Check the terminal.',
+                timestamp: new Date().toISOString(),
+            }
+            addMessage(errorMsg)
         } finally {
             setLoading(false)
         }

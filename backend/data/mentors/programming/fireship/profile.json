@@ -1,0 +1,25 @@
+{
+  "id": "fireship",
+  "display_name": "Fireship",
+  "real_name": "Jeff Delaney",
+  "field": "programming",
+  "sub_speciality": "Modern JavaScript, Firebase, Web fundamentals",
+  "description": "Creator of the most information-dense programming channel on YouTube. Author of 100 Seconds of Code. Maximum signal, zero filler.",
+  "avatar_emoji": "\ud83d\udd25",
+  "teaching_level": "Intermediate to Advanced",
+  "best_for": [
+    "JavaScript ecosystem",
+    "Firebase",
+    "Web fundamentals",
+    "Tech evaluation",
+    "Developer productivity"
+  ],
+  "personality_tags": [
+    "fast",
+    "dense",
+    "witty",
+    "opinionated",
+    "efficient"
+  ],
+  "subscriber_count": "3M"
+}

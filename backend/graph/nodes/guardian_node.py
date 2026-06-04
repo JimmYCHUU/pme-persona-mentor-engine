@@ -1,102 +1,99 @@
-"""
-Full guardian_node — content safety classifier.
-Uses DistilBERT for content classification. LAZY LOADED — never imported at module level.
-"""
+"""Guardian node — content safety filter.
 
+Runs as the final node in the LangGraph pipeline before END.
+Uses keyword-based detection with educational context awareness.
+Flags genuinely harmful content while preserving legitimate
+educational security/hacking content.
+"""
+import re
 import logging
 from graph.state import PMEState
-from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Module-level sentinel — ensures DistilBERT is loaded ONCE, lazily
-_classifier = None
-_classifier_loaded = False
-
-
-def _get_classifier():
-    """
-    Lazy-load the DistilBERT sentiment/toxicity classifier.
-    Only loaded on first call, never at import time.
-    This is critical for the 8 GB RAM constraint.
-    """
-    global _classifier, _classifier_loaded
-    if not _classifier_loaded:
-        try:
-            from transformers import pipeline
-            _classifier = pipeline(
-                'text-classification',
-                model=settings.GUARDIAN_MODEL,
-                truncation=True,
-                max_length=512,
-            )
-            logger.info('Guardian: DistilBERT classifier loaded')
-        except Exception as e:
-            logger.warning(f'Guardian: failed to load classifier: {e}')
-            _classifier = None
-        _classifier_loaded = True
-    return _classifier
-
-
-# Keywords and patterns that should be flagged regardless of classifier
-HARD_BLOCK_PATTERNS = [
-    'how to hack someone',
-    'how to exploit',
-    'steal credentials',
-    'phishing attack on',
-    'create malware for',
-    'social engineering someone',
-    'ddos attack against',
+# Harmful content patterns — matched only if not in educational context
+HARMFUL_PATTERNS = [
+    r'\bhack\s+into\s+someone',
+    r'\bsteal\s+(their|someone|people)',
+    r'\bbuild\s+a\s+weapon',
+    r'\bmake\s+(a\s+)?bomb',
+    r'\bexplosi[ve]+s?\b.*\b(how|build|make|create)',
+    r'\b(kill|harm|hurt|attack)\s+(a\s+)?(person|people|someone)',
+    r'\billegal\s+(drugs?|substances?)',
+    r'\bpick\s+a\s+lock\s+.*without\s+permission',
+    r'\bbypass\s+(security|authentication)\s+.*without\s+(authorization|permission)',
+    r'\bidentity\s+theft',
+    r'\bcredit\s+card\s+fraud',
+    r'\bhow\s+to\s+(ddos|dos)\s+',
 ]
 
+# Educational context indicators — if present, harmful patterns are often legitimate
+EDUCATIONAL_MARKERS = [
+    r'\bpenetration\s+test',
+    r'\bethical\s+hack',
+    r'\bsecurity\s+assess',
+    r'\bctf\b',
+    r'\bcapture\s+the\s+flag',
+    r'\bin\s+a\s+lab',
+    r'\bauthoriz',
+    r'\bwith\s+permission',
+    r'\btest\s+environment',
+    r'\bbug\s+bounty',
+    r'\bsecurity\s+audit',
+    r'\bstandard\s+(security|assessment)\s+technique',
+]
 
-async def guardian_node(state: PMEState) -> PMEState:
+SAFE_RESPONSE = (
+    "I appreciate your curiosity, but I cannot provide guidance on that topic "
+    "as it could potentially be harmful. Let me help you with something else "
+    "within our learning focus."
+)
+
+
+async def guardian_node(state: PMEState) -> dict:
+    """Check response for safety/appropriateness.
+
+    Uses keyword detection with educational context awareness.
+    Flags genuinely harmful content, preserves educational security content.
     """
-    Checks the styled_response for safety concerns.
-    Uses both pattern matching and DistilBERT classification.
-    If flagged, the response is sanitized before delivery.
-    """
-    response = state.get('styled_response', '')
+    response = state.get("styled_response", state.get("raw_llm_response", ""))
 
     if not response:
-        state['guardian_flagged'] = False
-        state['final_response'] = response
-        return state
+        return {
+            "guardian_flagged": False,
+            "final_response": response,
+        }
 
-    # 1. Hard keyword block check on USER input
-    user_msg = state.get('user_message', '').lower()
-    for pattern in HARD_BLOCK_PATTERNS:
-        if pattern in user_msg:
-            state['guardian_flagged'] = True
-            state['final_response'] = (
-                "I appreciate your curiosity, but I can't assist with that. "
-                "Let's focus on something constructive."
-            )
-            logger.info(f'Guardian: hard block triggered for pattern: {pattern}')
-            return state
+    is_harmful = _check_harmful(response)
 
-    # 2. DistilBERT classification on response
-    classifier = _get_classifier()
-    if classifier:
-        try:
-            result = classifier(response[:512])
-            label = result[0]['label'].lower()
-            score = result[0]['score']
+    if is_harmful:
+        logger.warning("Guardian flagged response as harmful")
+        return {
+            "guardian_flagged": True,
+            "final_response": SAFE_RESPONSE,
+        }
 
-            # DistilBERT returns POSITIVE/NEGATIVE for sentiment.
-            # We use NEGATIVE + high score as a flag.
-            if label == 'negative' and score > 0.95:
-                state['guardian_flagged'] = True
-                # Don't block, but flag for review
-                state['final_response'] = response
-                logger.info(
-                    f'Guardian: flagged (label={label}, score={score:.2f})'
-                )
-                return state
-        except Exception as e:
-            logger.warning(f'Guardian: classifier error: {e}')
+    return {
+        "guardian_flagged": False,
+        "final_response": response,
+    }
 
-    # 3. All clear
-    state['guardian_flagged'] = False
-    state['final_response'] = response
-    return state
+
+def _check_harmful(text: str) -> bool:
+    """Check if text contains harmful content not in educational context."""
+    text_lower = text.lower()
+
+    # Check for educational context first
+    is_educational = any(
+        re.search(pattern, text_lower) for pattern in EDUCATIONAL_MARKERS
+    )
+
+    # Check for harmful patterns
+    for pattern in HARMFUL_PATTERNS:
+        if re.search(pattern, text_lower):
+            if is_educational:
+                # Educational context — likely legitimate
+                continue
+            return True
+
+    return False

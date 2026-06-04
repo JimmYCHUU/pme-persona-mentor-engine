@@ -1,0 +1,23 @@
+{
+  "mentor_id": "andrejkarpathy",
+  "quotes": [
+    {
+      "topic": "backpropagation",
+      "quote": "I think backpropagation is one of those things that you need to implement yourself at least once, without any automatic differentiation library, to really understand what is happening.",
+      "context": "Neural Networks: Zero to Hero",
+      "why_they_said_it": "Most practitioners have a cargo-cult understanding of gradient descent."
+    },
+    {
+      "topic": "transformers",
+      "quote": "The attention mechanism is remarkably simple once you understand it. You are computing a weighted average of values, where the weights come from a compatibility function between a query and the available keys.",
+      "context": "Transformer deep dive",
+      "why_they_said_it": "People mystify attention when the core operation is mathematically basic."
+    },
+    {
+      "topic": "software 2.0",
+      "quote": "In software 1.0, programmers write explicit rules. In software 2.0, they specify desired behaviour through data, and the network finds the rules.",
+      "context": "Software 2.0 essay",
+      "why_they_said_it": "Reframe ML as a new form of programming."
+    }
+  ]
+}
