@@ -75,13 +75,39 @@ async def test_etm_node_stub(base_state):
 # ── Socratic Node (stub) ─────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_socratic_node_stub(base_state):
-    """Socratic stub returns level 0 and no deviation."""
+async def test_socratic_node_stub(base_state, monkeypatch):
+    """Socratic node in friend_mode returns level 0 and no deviation."""
     from graph.nodes.socratic_node import socratic_node
 
+    # Mock retriever to avoid real ChromaDB calls
+    mock_retriever = AsyncMock()
+    mock_retriever.get_citation.return_value = None
+    monkeypatch.setattr("graph.nodes.socratic_node.retriever", mock_retriever)
+
+    # Friend mode always returns level 0 without calling LLM
+    base_state["mode"] = "friend_mode"
     result = await socratic_node(base_state)
     assert result["socratic_level"] == 0
     assert result["deviation_score"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_socratic_node_with_assessment(base_state, monkeypatch):
+    """Socratic node parses LLM assessment correctly."""
+    from graph.nodes.socratic_node import socratic_node
+
+    mock_retriever = AsyncMock()
+    mock_retriever.get_citation.return_value = "test citation"
+    monkeypatch.setattr("graph.nodes.socratic_node.retriever", mock_retriever)
+
+    mock_llm = AsyncMock()
+    mock_llm.chat.return_value = '{"level": 2, "deviation_score": 0.35, "reasoning": "partial understanding"}'
+    monkeypatch.setattr("graph.nodes.socratic_node.llm_service", mock_llm)
+
+    result = await socratic_node(base_state)
+    assert result["socratic_level"] == 2
+    assert result["deviation_score"] == 0.35
+    assert result["vault_citation"] == "test citation"
 
 
 # ── Persona Node ──────────────────────────────────────────────

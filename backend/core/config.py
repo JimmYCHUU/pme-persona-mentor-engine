@@ -14,12 +14,12 @@ class Settings(BaseSettings):
     # Two models, two jobs:
     # PERSONA_MODEL   → mentor voice, style transfer
     # REASONING_MODEL → Socratic scoring, concept extraction
-    PERSONA_MODEL: str = "meta-llama/llama-3.3-70b-instruct:free"
-    REASONING_MODEL: str = "deepseek/deepseek-v4-flash:free"
+    PERSONA_MODEL: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    REASONING_MODEL: str = "nvidia/nemotron-3-super-120b-a12b:free"
 
     # ── Fallback chain (tried in order when rate limited) ─────
-    FALLBACK_MODEL_1: str = "meta-llama/llama-3.3-70b-instruct:free"
-    FALLBACK_MODEL_2: str = "mistralai/mistral-7b-instruct:free"
+    FALLBACK_MODEL_1: str = "google/gemma-4-31b-it:free"
+    FALLBACK_MODEL_2: str = "qwen/qwen3-coder:free"
 
     # ── Fallback (local Ollama) ────────────────────────────────
     OLLAMA_BASE_URL: str = "http://localhost:11434"

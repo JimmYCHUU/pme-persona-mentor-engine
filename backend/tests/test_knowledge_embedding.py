@@ -149,6 +149,7 @@ async def test_persona_node_includes_vault_citation(base_state):
     with patch('graph.nodes.persona_node.PersonaService') as MockPS:
         instance = MockPS.return_value
         instance.get_persona = AsyncMock(return_value=mock_persona)
+        instance.list_personas = AsyncMock(return_value=[])
         with patch('graph.nodes.persona_node.llm_service') as mock_llm:
             mock_llm.chat = AsyncMock(return_value="Great question about recursion!")
             result = await persona_node(state)
@@ -175,6 +176,7 @@ async def test_persona_node_includes_socratic_instruction(base_state):
     with patch('graph.nodes.persona_node.PersonaService') as MockPS:
         instance = MockPS.return_value
         instance.get_persona = AsyncMock(return_value=mock_persona)
+        instance.list_personas = AsyncMock(return_value=[])
         with patch('graph.nodes.persona_node.llm_service') as mock_llm:
             mock_llm.chat = AsyncMock(return_value="Let me challenge that assumption.")
             result = await persona_node(state)
@@ -200,6 +202,7 @@ async def test_persona_node_includes_etm_context(base_state):
     with patch('graph.nodes.persona_node.PersonaService') as MockPS:
         instance = MockPS.return_value
         instance.get_persona = AsyncMock(return_value=mock_persona)
+        instance.list_personas = AsyncMock(return_value=[])
         with patch('graph.nodes.persona_node.llm_service') as mock_llm:
             mock_llm.chat = AsyncMock(return_value="I see you're working on null safety.")
             result = await persona_node(state)

@@ -1,10 +1,11 @@
 /**
  * MentorGallery — category-based mentor browsing with filtering.
- * Displays 8 category tabs and a grid of MentorCards.
+ * Displays 8 category tabs, a grid of MentorCards, and a profile modal.
  */
 
 import { useState, useEffect } from 'react'
 import { MentorCard } from './MentorCard'
+import { MentorProfileModal } from './MentorProfileModal'
 import { getCategories, getCategoryMentors, activateMentor } from '../../api/client'
 import type { MentorCategory, MentorProfile } from '../../types'
 
@@ -18,7 +19,7 @@ export function MentorGallery({ onMentorActivated }: Props) {
     const [mentors, setMentors] = useState<MentorProfile[]>([])
     const [loading, setLoading] = useState(true)
     const [activatingId, setActivatingId] = useState<string | null>(null)
-    const [successId, setSuccessId] = useState<string | null>(null)
+    const [selectedMentor, setSelectedMentor] = useState<MentorProfile | null>(null)
 
     // Load categories on mount
     useEffect(() => {
@@ -27,7 +28,6 @@ export function MentorGallery({ onMentorActivated }: Props) {
                 const res = await getCategories()
                 if (res.success && res.data) {
                     setCategories(res.data as MentorCategory[])
-                    // Auto-select first category
                     if ((res.data as MentorCategory[]).length > 0) {
                         setActiveCategory((res.data as MentorCategory[])[0].id)
                     }
@@ -58,9 +58,8 @@ export function MentorGallery({ onMentorActivated }: Props) {
             const res = await activateMentor(category, mentorId)
             if (res.success && res.data) {
                 const data = res.data as { persona_id: string; mentor_name: string }
-                setSuccessId(mentorId)
+                setSelectedMentor(null) // Close modal
                 onMentorActivated?.(data.persona_id, data.mentor_name)
-                setTimeout(() => setSuccessId(null), 3000)
             }
         } catch { /* silent */ }
         setActivatingId(null)
@@ -122,23 +121,6 @@ export function MentorGallery({ onMentorActivated }: Props) {
                 })}
             </div>
 
-            {/* Success banner */}
-            {successId && (
-                <div style={{
-                    margin: '16px 32px 0',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    background: 'var(--success-bg)',
-                    border: '1px solid rgba(52, 211, 153, 0.2)',
-                    color: 'var(--success)',
-                    fontSize: '13px',
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    animation: 'fadeInUp var(--t-slow) ease both',
-                }}>
-                    ✓ Mentor activated and knowledge embedding started in background
-                </div>
-            )}
-
             {/* Mentor grid */}
             <div style={{
                 flex: 1, overflow: 'auto',
@@ -169,12 +151,24 @@ export function MentorGallery({ onMentorActivated }: Props) {
                                 mentor={m}
                                 category={activeCategory || ''}
                                 onActivate={handleActivate}
+                                onCardClick={setSelectedMentor}
                                 isActivating={activatingId === m.id}
                             />
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Profile Modal */}
+            {selectedMentor && (
+                <MentorProfileModal
+                    mentor={selectedMentor}
+                    category={activeCategory || ''}
+                    onClose={() => setSelectedMentor(null)}
+                    onActivate={handleActivate}
+                    isActivating={activatingId === selectedMentor.id}
+                />
+            )}
         </div>
     )
 }

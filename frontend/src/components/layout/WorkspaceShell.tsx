@@ -31,10 +31,11 @@ export function WorkspaceShell() {
             try {
                 const res = await checkHealth()
                 if (res.success && res.data) {
+                    const d = res.data as { openrouter_online: boolean; ollama_online: boolean; primary_provider?: string }
                     setProviderStatus({
-                        openrouter: res.data.openrouter_online,
-                        ollama: res.data.ollama_online,
-                        primary: res.data.primary_provider || 'none',
+                        openrouter: d.openrouter_online,
+                        ollama: d.ollama_online,
+                        primary: d.primary_provider || 'none',
                     })
                 }
             } catch { /* silent */ }
@@ -61,7 +62,7 @@ export function WorkspaceShell() {
     const renderPage = () => {
         switch (activePath) {
             case '/dashboard': return <DashboardPage />
-            case '/mentors': return <MentorsPage />
+            case '/mentors': return <MentorsPage onNavigateToChat={() => setActivePath('/')} />
             case '/settings': return <SettingsPage />
             default: return <SessionPage />
         }

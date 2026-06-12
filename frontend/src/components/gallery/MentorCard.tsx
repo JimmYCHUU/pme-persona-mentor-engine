@@ -10,14 +10,16 @@ interface Props {
     mentor: MentorProfile
     category: string
     onActivate: (category: string, mentorId: string) => void
+    onCardClick: (mentor: MentorProfile) => void
     isActivating: boolean
 }
 
-export function MentorCard({ mentor, category, onActivate, isActivating }: Props) {
+export function MentorCard({ mentor, category, onActivate, onCardClick, isActivating }: Props) {
     const [hovered, setHovered] = useState(false)
 
     return (
         <div
+            onClick={() => onCardClick(mentor)}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{

@@ -8,13 +8,18 @@ from services.persona_service import PersonaService
 from core.utils import generate_id
 
 router = APIRouter()
+_session_svc = SessionService()
+_persona_svc = PersonaService()
 
 
 @router.post('/resume', response_model=dict)
 async def resume_session(body: dict):
     """Load last session snapshot and generate resume greeting."""
     persona_id = body.get('persona_id', '')
-    snapshot = await SessionService.get_latest_for_persona(persona_id)
+
+    # Find latest session for this persona
+    sessions = await _session_svc.list_sessions(persona_id)
+    snapshot = sessions[-1] if sessions else None
 
     if not snapshot:
         return {
@@ -24,7 +29,7 @@ async def resume_session(body: dict):
         }
 
     # Generate resume greeting via LLM
-    profile = await PersonaService.load(persona_id)
+    profile = await _persona_svc.get_persona(persona_id)
     mentor_name = profile['name'] if profile else 'Mentor'
     summary = snapshot.get('mentor_assessment', {}).get('summary', 'your last session')
     next_steps = snapshot.get('mentor_assessment', {}).get('next_steps', [])
@@ -63,5 +68,5 @@ async def save_session(req: SessionSaveRequest):
     snapshot = req.snapshot
     snapshot['session_id'] = req.session_id
     snapshot['persona_id'] = req.persona_id
-    await SessionService.save(snapshot)
+    _session_svc._save(req.session_id, snapshot)
     return {'success': True, 'data': {'saved': True}, 'error': None}

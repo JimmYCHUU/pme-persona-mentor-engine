@@ -55,12 +55,15 @@ class LLMService:
                 try:
                     return await self._call_openrouter(m, system, message, history)
                 except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:
-                        if attempt < 2:
-                            await asyncio.sleep(2 ** attempt)
+                    code = e.response.status_code
+                    if code == 429 and attempt < 2:
+                        await asyncio.sleep(2 ** attempt)
                         continue
-                    raise
-                except Exception:
+                    # Any non-429 error (404, 403, 500) → skip to next model
+                    logger.warning(f"Model {m} returned HTTP {code}, trying next")
+                    break
+                except Exception as e:
+                    logger.warning(f"Model {m} failed: {e}, trying next")
                     break
 
         # All failed — try local Ollama

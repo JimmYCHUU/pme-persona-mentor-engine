@@ -7,7 +7,11 @@ import { useState, useEffect } from 'react'
 import { MentorGallery } from '../components/gallery/MentorGallery'
 import { usePersonaStore } from '../store/personaStore'
 
-export function MentorsPage() {
+interface Props {
+    onNavigateToChat?: () => void
+}
+
+export function MentorsPage({ onNavigateToChat }: Props) {
     const [tab, setTab] = useState<'gallery' | 'custom'>('gallery')
     const { personas, activePersona, setActive, loadPersonas } = usePersonaStore()
 
@@ -15,9 +19,14 @@ export function MentorsPage() {
         loadPersonas()
     }, [])
 
-    const handleMentorActivated = (_personaId: string, _mentorName: string) => {
-        // Reload personas after activation so the new mentor appears
-        loadPersonas()
+    const handleMentorActivated = (personaId: string, _mentorName: string) => {
+        // Reload personas so the new mentor appears in the list
+        loadPersonas().then(() => {
+            // Set the activated mentor as active
+            setActive(personaId)
+            // Navigate to chat
+            onNavigateToChat?.()
+        })
     }
 
     return (
@@ -86,7 +95,10 @@ export function MentorsPage() {
                             {personas.map(p => (
                                 <div
                                     key={p.persona_id}
-                                    onClick={() => setActive(p.persona_id)}
+                                    onClick={() => {
+                                        setActive(p.persona_id)
+                                        onNavigateToChat?.()
+                                    }}
                                     style={{
                                         padding: '20px',
                                         background: activePersona?.persona_id === p.persona_id
