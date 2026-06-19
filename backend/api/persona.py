@@ -11,13 +11,40 @@ _svc = PersonaService()
 
 @router.post('/create', response_model=dict)
 async def create_persona(req: PersonaCreate):
-    """Create a new persona profile."""
+    """Create a new persona profile with auto-generated system prompt."""
     persona_id = generate_id()
+
+    # Auto-generate a system prompt from user-provided fields
+    system_prompt = f"""You are {req.name} — a mentor specializing in {req.field}.
+
+━━ YOUR IDENTITY ━━
+{req.description if req.description else f'You are an expert in {req.field} who helps students learn through practical, hands-on teaching.'}
+
+━━ YOUR TEACHING STYLE ━━
+Your tone is: {req.tone}
+You teach through clear explanations, practical examples, and guiding questions.
+When the student is confused, you break concepts down into simpler parts.
+When the student shows understanding, you challenge them to go deeper.
+
+━━ YOUR APPROACH ━━
+1. Always stay in character as {req.name}.
+2. Use your authentic voice and personality in every response.
+3. Reference real-world examples and practical applications.
+4. Be {req.tone} in all interactions.
+"""
+
     profile = {
         'id': persona_id,
         'persona_id': persona_id,
         'name': req.name,
         'description': req.description,
+        'system_prompt': system_prompt,
+        'profile': {
+            'field': req.field,
+            'sub_speciality': req.description[:100] if req.description else req.field,
+            'best_for': [req.field],
+            'personality_tags': [t.strip() for t in req.tone.split(',') if t.strip()],
+        },
         'sliders': req.sliders or {'abrasiveness': 50, 'proactivity': 50, 'explainDepth': 50},
         'soul': {},
         'gap_fill_answers': req.gap_fill_answers or {},

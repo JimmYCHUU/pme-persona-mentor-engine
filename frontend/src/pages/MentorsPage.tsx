@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { MentorGallery } from '../components/gallery/MentorGallery'
+import { CreateMentorModal } from '../components/gallery/CreateMentorModal'
 import { usePersonaStore } from '../store/personaStore'
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 
 export function MentorsPage({ onNavigateToChat }: Props) {
     const [tab, setTab] = useState<'gallery' | 'custom'>('gallery')
+    const [showCreate, setShowCreate] = useState(false)
     const { personas, activePersona, setActive, loadPersonas } = usePersonaStore()
 
     useEffect(() => {
@@ -130,20 +132,23 @@ export function MentorsPage({ onNavigateToChat }: Props) {
                             ))}
 
                             {/* Create new card */}
-                            <div style={{
-                                padding: '20px',
-                                background: 'var(--bg-surface)',
-                                border: '1px dashed var(--border-default)',
-                                borderRadius: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                minHeight: '120px',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                fontSize: '14px',
-                                transition: 'all var(--t-fast)',
-                            }}>
+                            <div
+                                onClick={() => setShowCreate(true)}
+                                style={{
+                                    padding: '20px',
+                                    background: 'var(--bg-surface)',
+                                    border: '1px dashed var(--border-default)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: '120px',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    fontSize: '14px',
+                                    transition: 'all var(--t-fast)',
+                                }}
+                            >
                                 + New Mentor
                             </div>
                         </div>
@@ -170,6 +175,19 @@ export function MentorsPage({ onNavigateToChat }: Props) {
                     </div>
                 )}
             </div>
+
+            {/* Create Mentor Modal */}
+            <CreateMentorModal
+                open={showCreate}
+                onClose={() => setShowCreate(false)}
+                onCreated={(personaId) => {
+                    setShowCreate(false)
+                    loadPersonas().then(() => {
+                        setActive(personaId)
+                        onNavigateToChat?.()
+                    })
+                }}
+            />
         </div>
     )
 }

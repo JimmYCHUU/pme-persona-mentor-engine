@@ -25,6 +25,8 @@ class PersonaCreate(BaseModel):
     """Request body for POST /persona/create."""
     name: str
     description: str = ''
+    field: str = 'general'
+    tone: str = 'helpful and encouraging'
     sliders: Optional[dict] = None
     urls: Optional[List[str]] = None
     gap_fill_answers: Optional[dict] = None
