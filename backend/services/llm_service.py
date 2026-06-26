@@ -151,5 +151,65 @@ class LLMService:
             used += chars
         return result
 
+    async def chat_stream(
+        self, message: str, system: str, history: list = []
+    ) -> AsyncGenerator[str, None]:
+        """Stream tokens from the LLM. Yields individual text chunks.
+
+        Tries OpenRouter streaming first, falls back to non-streaming chat().
+        """
+        model = settings.PERSONA_MODEL
+        try:
+            async for chunk in self._stream_openrouter(model, system, message, history):
+                yield chunk
+        except Exception as e:
+            logger.warning(f"Streaming failed ({e}), falling back to non-stream")
+            # Fallback: get full response and yield it at once
+            full = await self.chat(message=message, system=system, history=history)
+            yield full
+
+    async def _stream_openrouter(
+        self, model, system, message, history
+    ) -> AsyncGenerator[str, None]:
+        """Stream from OpenRouter SSE endpoint, yielding content deltas."""
+        trimmed = self._trim(system, message, history)
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                *trimmed,
+                {"role": "user", "content": message},
+            ],
+            "stream": True,
+        }
+        async with httpx.AsyncClient(timeout=120.0) as c:
+            async with c.stream(
+                "POST",
+                f"{settings.OPENROUTER_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:5173",
+                    "X-Title": "Persona Mentor Engine",
+                },
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                import json as _json
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = _json.loads(data)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except (KeyError, _json.JSONDecodeError):
+                        continue
+
 
 llm_service = LLMService()

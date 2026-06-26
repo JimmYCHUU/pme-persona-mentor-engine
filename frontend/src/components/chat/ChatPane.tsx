@@ -76,7 +76,7 @@ export function ChatPane() {
                 {messages.map((msg, i) => (
                     <Message key={i} message={msg} mentorName={activePersona?.name || 'Mentor'} />
                 ))}
-                {isLoading && (
+                {isLoading && (messages.length === 0 || messages[messages.length - 1]?.content === '') && (
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -99,7 +99,7 @@ export function ChatPane() {
                             fontFamily: 'var(--font-mono)',
                             marginLeft: '6px',
                         }}>
-                            thinking…
+                            connecting…
                         </span>
                     </div>
                 )}
